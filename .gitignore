@@ -3,3 +3,4 @@ dist/
 .env
 *.log
 server/data/cache.json
+*.tsbuildinfo
