@@ -14,13 +14,20 @@ const COLOR: Record<Quote, string> = {
     RUB: "--rub",
 };
 
+/**
+ * Three pairs side by side under the weather chart.
+ *
+ * Stacked in the right-hand column each chart was 466x69, which is a sparkline
+ * — a shape, not a graph. Across the full width of the left column they get
+ * roughly 330x150 each, enough to carry gridlines and a value axis.
+ */
 export function FxPanel({ entry }: Props) {
     const series = entry.data?.series ?? [];
 
     return (
         <section class="panel">
             <header class="panel__head">
-                <span class="panel__title">Currency</span>
+                <span class="panel__title">Currency · 30 days</span>
                 <Stale entry={entry} expectedMs={EXPECTED_INTERVAL_MS.fx} />
             </header>
             <div class="panel__body">
@@ -28,32 +35,32 @@ export function FxPanel({ entry }: Props) {
                     <span class="empty">No rates yet</span>
                 ) : (
                     <div class="fx">
-                        {series.map((s) => (
-                            <div class="fx__row" key={s.quote}>
-                                <div>
-                                    <div class="fx__pair">
-                                        {s.base}/{s.quote}
+                        {series.map((s) => {
+                            const direction =
+                                s.changePct === null
+                                    ? ""
+                                    : s.changePct >= 0
+                                      ? " fx__change--up"
+                                      : " fx__change--down";
+                            return (
+                                <div class="fx__cell" key={s.quote}>
+                                    <div class="fx__head">
+                                        <span class="fx__pair">
+                                            {s.base}/{s.quote}
+                                        </span>
+                                        <span class={`fx__change${direction}`}>
+                                            {s.changePct === null
+                                                ? ""
+                                                : `${s.changePct >= 0 ? "+" : ""}${s.changePct.toFixed(1)}%`}
+                                        </span>
                                     </div>
                                     <div class="fx__rate">
                                         {s.latest === null ? "—" : formatRate(s.latest)}
                                     </div>
+                                    <Sparkline points={s.points} colorVar={COLOR[s.quote]} />
                                 </div>
-                                <Sparkline points={s.points} colorVar={COLOR[s.quote]} />
-                                <div
-                                    class={`fx__change${
-                                        s.changePct === null
-                                            ? ""
-                                            : s.changePct >= 0
-                                              ? " fx__change--up"
-                                              : " fx__change--down"
-                                    }`}
-                                >
-                                    {s.changePct === null
-                                        ? ""
-                                        : `${s.changePct >= 0 ? "+" : ""}${s.changePct.toFixed(1)}%`}
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>

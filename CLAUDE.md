@@ -91,6 +91,26 @@ end. The owner pushes; **Claude never pushes**.
   cost real debugging time belong in the body.
 - **No `Co-Authored-By` trailer and no tool attribution.** The owner's name is
   the only one on these commits.
+- Run `npm run check` (format, lint, typecheck, tests) before committing.
+  There is no pre-commit hook and no husky — the discipline is Claude's, not
+  the tooling's.
+
+### Code style
+
+Prettier owns formatting, ESLint owns everything Prettier cannot express.
+
+- **4-space indent, double quotes, 100 columns, trailing commas, semicolons.**
+- **Braces on every branch.** No `if (!x) return;` on one line, ever.
+- `npm run format` / `npm run lint:fix` do the mechanical work.
+
+**Ordering trap in `eslint.config.mjs`:** `eslint-config-prettier` sets
+`curly: 0` unconditionally, so putting it last — as its own README suggests —
+silently disables the brace rule and lints clean over exactly the code it is
+meant to reject. It sits *before* the project rules here. Only
+`curly: "multi-line"` genuinely conflicts with Prettier; `"all"` does not.
+Getting this wrong hid 67 violations.
+
+Markdown is Prettier-ignored so this file keeps its hand-wrapped prose.
 
 **Commands** (all from the repo root):
 
@@ -204,14 +224,25 @@ addEventListener('resize', fit); fit();
 ```
 
 **Zones:**
-- Reminder bar — full width, top. Glance-first item; full width absorbs variable
-  text length without reflowing anything else.
-- Weather chart — left ~60%, full remaining height. Largest because it carries two
-  overlaid series plus markers and bands.
-- FX panels — right column, three stacked sparklines: USD/EUR, USD/CNY,
-  USD/RUB over a rolling 30-day window.
-- News feed — right column, below FX.
-- Twitch panel — placement TBD (see open decisions).
+- Top bar — full width, 104px. **Rotates between reminders and today's luften
+  windows** on a 9-second interval with a `rotateX` flip. Both want the
+  glance-first slot and neither fills it, so they take turns; a face with
+  nothing to say drops out of the rotation, and a single remaining face holds
+  rather than flipping against itself. Honours `prefers-reduced-motion`.
+- Weather chart — left column, 612px. Two overlaid series (temperature and
+  dewpoint), hourly rain-chance bars behind them, commute markers and luften
+  bands on top.
+- Currency — left column, under the weather, 300px. Three pairs **side by
+  side**, each ~347×162. Stacked in the right-hand column they were 466×69,
+  which is a sparkline rather than a graph — too small to carry gridlines or a
+  value axis.
+- News feed — right column, full height.
+- Twitch — right column, below news. Renders nothing at all when nobody is
+  live and gives its height back to the feed.
+
+There is no luften panel. It was a four-box lookahead strip, then a single
+row, and is now folded into the top bar. The 3-day lookahead is still computed
+and still travels in the state payload — nothing draws it.
 
 **Kiosk runtime:**
 ```

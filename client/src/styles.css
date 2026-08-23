@@ -81,11 +81,13 @@ body {
 }
 
 .column--left {
-    grid-template-rows: 1fr 128px;
+    /* Weather keeps the bulk; currency gets enough height for real charts. */
+    grid-template-rows: 1fr 300px;
 }
 
 .column--right {
-    grid-template-rows: 300px 1fr auto;
+    /* Twitch collapses to nothing when nobody is live and news absorbs it. */
+    grid-template-rows: 1fr auto;
 }
 
 .panel {
@@ -120,44 +122,96 @@ body {
     min-height: 0;
 }
 
-/* ---------------------------------------------------------- reminder bar */
+/* --------------------------------------------------------------- top bar */
 
-.reminders {
-    display: flex;
-    /* Overrides .panel's column direction — the bar runs across, and the clock
-     depends on margin-left:auto pushing it to the far end of a row. */
+.topbar {
+    /* Overrides .panel column direction — the bar runs across, and the clock
+       depends on margin-left:auto pushing it to the far end of a row. */
     flex-direction: row;
     align-items: center;
     gap: 32px;
     padding: 0 26px;
-    font-size: 34px;
-    font-weight: 600;
     overflow: hidden;
+    /* Gives the face flip actual depth rather than a flat squash. */
+    perspective: 1200px;
 }
 
-.reminders__item {
+.topbar__face {
+    display: flex;
+    align-items: center;
+    gap: 34px;
+    min-width: 0;
+    font-size: 34px;
+    font-weight: 600;
+    transform-origin: center center;
+    animation: topbar-flip 460ms cubic-bezier(0.2, 0.75, 0.3, 1) both;
+}
+
+@keyframes topbar-flip {
+    from {
+        transform: rotateX(-90deg);
+        opacity: 0;
+    }
+    to {
+        transform: rotateX(0deg);
+        opacity: 1;
+    }
+}
+
+/* A wall display is ambient, but honour the preference where it is set. */
+@media (prefers-reduced-motion: reduce) {
+    .topbar__face {
+        animation: none;
+    }
+}
+
+.topbar__item {
     display: flex;
     align-items: center;
     gap: 14px;
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
 
-.reminders__dot {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--warm);
-    flex: none;
-}
-
-.reminders--idle {
+.topbar__item--quiet {
     color: var(--ink-faint);
     font-weight: 400;
     font-size: 26px;
 }
 
-.reminders__clock {
+.topbar__note {
+    font-size: 15px;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    color: var(--ink-faint);
+}
+
+.topbar__dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex: none;
+}
+
+.topbar__dot--reminder {
+    background: var(--warm);
+}
+
+.topbar__dot--all-day {
+    background: var(--good);
+}
+
+.topbar__dot--exchange {
+    background: var(--accent);
+}
+
+.topbar__dot--none {
+    background: var(--ink-faint);
+}
+
+.topbar__clock {
     margin-left: auto;
+    font-size: 30px;
     font-variant-numeric: tabular-nums;
     color: var(--ink-dim);
     font-weight: 500;
@@ -197,52 +251,6 @@ body {
     margin-right: 7px;
 }
 
-/* ---------------------------------------------------------------- luften */
-
-.luften__windows {
-    display: flex;
-    align-items: center;
-    gap: 28px;
-}
-
-.luften__window {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    font-variant-numeric: tabular-nums;
-}
-
-.luften__window b {
-    font-size: 30px;
-    font-weight: 600;
-}
-
-.luften__window small {
-    font-size: 14px;
-    color: var(--ink-faint);
-    letter-spacing: 0.04em;
-}
-
-.luften__window--all-day b {
-    color: var(--good);
-}
-
-.luften__window--exchange b {
-    color: var(--accent);
-    font-size: 24px;
-    font-weight: 500;
-}
-
-.luften__none {
-    font-size: 26px;
-    color: var(--ink-faint);
-}
-
-.luften__indoor {
-    font-size: 13px;
-    color: var(--ink-faint);
-}
-
 /* A bar swatch, for the rain-chance series in the weather legend. */
 .swatch--bar {
     background: rgba(88, 166, 255, 0.45);
@@ -253,17 +261,23 @@ body {
 
 .fx {
     display: grid;
-    grid-template-rows: repeat(3, 1fr);
-    gap: 10px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px;
     height: 100%;
 }
 
-.fx__row {
-    display: grid;
-    grid-template-columns: 108px 1fr 96px;
-    align-items: center;
-    gap: 12px;
+.fx__cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
     min-height: 0;
+    min-width: 0;
+}
+
+.fx__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
 }
 
 .fx__pair {
@@ -273,18 +287,19 @@ body {
 }
 
 .fx__rate {
-    font-size: 26px;
+    font-size: 32px;
     font-variant-numeric: tabular-nums;
     font-weight: 600;
+    line-height: 1.15;
 }
 
 .fx__spark {
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     min-width: 0;
 }
 
 .fx__change {
-    text-align: right;
     font-size: 17px;
     font-variant-numeric: tabular-nums;
 }

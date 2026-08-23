@@ -1,8 +1,7 @@
 import { useDashboard } from "./use-dashboard";
 import { useNow } from "./use-now";
-import { ReminderBar } from "./panels/reminder-bar";
+import { TopBar } from "./panels/topbar";
 import { WeatherPanel } from "./panels/weather-panel";
-import { LuftenPanel } from "./panels/luften-panel";
 import { FxPanel } from "./panels/fx-panel";
 import { NewsPanel } from "./panels/news-panel";
 import { TwitchPanel } from "./panels/twitch-panel";
@@ -13,16 +12,16 @@ export function App() {
 
     return (
         <div class="dashboard">
-            <ReminderBar reminders={state.reminders} now={now} />
+            {/* Reminders and luften share the top bar, rotating between them. */}
+            <TopBar reminders={state.reminders} luften={state.luften} now={now} />
 
             <div class="dashboard__body">
                 <div class="column column--left">
                     <WeatherPanel entry={state.weather} luften={state.luften} />
-                    <LuftenPanel luften={state.luften} />
+                    <FxPanel entry={state.fx} />
                 </div>
 
                 <div class="column column--right">
-                    <FxPanel entry={state.fx} />
                     <NewsPanel entry={state.news} />
                     <TwitchPanel entry={state.twitch} />
                 </div>
