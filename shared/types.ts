@@ -26,7 +26,7 @@ export const EXPECTED_INTERVAL_MS: Record<SourceKey, number> = {
     weather: 15 * 60_000,
     news: 10 * 60_000,
     twitch: 90_000,
-    fx: 24 * 60 * 60_000,
+    fx: 15 * 60_000,
     collection: 24 * 60 * 60_000,
 };
 
@@ -66,9 +66,14 @@ export interface FxSeries {
     base: string;
     points: FxPoint[];
     latest: number | null;
+    /**
+     * When `latest` was quoted, ISO 8601 — the market timestamp, not our fetch
+     * time. Null for daily-reference sources, which have no intraday meaning.
+     */
+    asOf: string | null;
     /** Percent change across the whole window, or null if fewer than two points. */
     changePct: number | null;
-    source: "frankfurter" | "cbr";
+    source: "yahoo" | "frankfurter" | "cbr";
 }
 
 export interface FxData {

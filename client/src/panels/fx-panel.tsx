@@ -3,6 +3,7 @@ import { EXPECTED_INTERVAL_MS } from "@shared/types";
 import { Stale } from "../components/stale";
 import { Sparkline } from "./sparkline";
 import { formatRate } from "../colors";
+import { DateTime } from "luxon";
 
 interface Props {
     entry: CacheEntry<FxData>;
@@ -24,10 +25,20 @@ const COLOR: Record<Quote, string> = {
 export function FxPanel({ entry }: Props) {
     const series = entry.data?.series ?? [];
 
+    // The market timestamp, not our fetch time — what matters when deciding
+    // whether a rate is worth acting on. Only intraday sources carry one.
+    const newest = series
+        .map((s) => s.asOf)
+        .filter((at): at is string => at !== null)
+        .sort()
+        .pop();
+    const quotedAt = newest ? DateTime.fromISO(newest).toFormat("h:mm a") : null;
+
     return (
         <section class="panel">
             <header class="panel__head">
                 <span class="panel__title">Currency · 30 days</span>
+                {quotedAt && <span class="fx__asof">live {quotedAt}</span>}
                 <Stale entry={entry} expectedMs={EXPECTED_INTERVAL_MS.fx} />
             </header>
             <div class="panel__body">

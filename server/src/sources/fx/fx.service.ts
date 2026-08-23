@@ -1,11 +1,12 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
-import { Cron } from "@nestjs/schedule";
+import { Interval } from "@nestjs/schedule";
 import { DateTime } from "luxon";
 import { CacheService } from "../../cache/cache.service";
 import { getJson } from "../../cache/http";
 import { FxData, FxPoint, FxSeries, Quote } from "../../shared";
 import { TIMEZONE, stagger } from "../stagger";
 import { fetchCbrRubPerUsd } from "./cbr";
+import { fetchYahooSeries } from "./yahoo";
 
 const BASE = "USD";
 const QUOTES: Quote[] = ["EUR", "RUB", "CNY"];
@@ -38,37 +39,72 @@ export class FxService implements OnModuleInit {
         stagger("fx", () => this.refresh());
     }
 
-    // ECB publishes around 16:00 CET; this runs comfortably after, and before
-    // the 06:00 display power-on.
-    @Cron("30 5 * * *", { name: "fx", timeZone: TIMEZONE })
+    // Fifteen minutes, not daily. The point of the panel is deciding when to
+    // exchange money, which a once-a-day reference rate cannot support.
+    @Interval("fx", 15 * 60_000)
     async refresh(): Promise<void> {
         await this.cache.refresh("fx", () => this.fetchAll());
     }
 
     private async fetchAll(): Promise<FxData> {
-        const to = DateTime.now().setZone(TIMEZONE).startOf("day");
-        const from = to.minus({ days: WINDOW_DAYS });
-
-        const hasRub = await this.probeRubSupport();
-        const wanted = hasRub ? QUOTES : QUOTES.filter((q) => q !== "RUB");
+        const attempts = await Promise.allSettled(
+            QUOTES.map((quote) => fetchYahooSeries(quote, WINDOW_DAYS)),
+        );
 
         const series: FxSeries[] = [];
-        const byQuote = await this.fetchFrankfurter(from, wanted);
-        for (const quote of wanted) {
-            series.push(toSeries(quote, byQuote[quote] ?? [], "frankfurter"));
+        const missing: Quote[] = [];
+        attempts.forEach((attempt, i) => {
+            const quote = QUOTES[i]!;
+            if (attempt.status === "fulfilled") {
+                series.push(attempt.value);
+            } else {
+                missing.push(quote);
+                this.log.warn(`Yahoo failed for ${quote} — ${String(attempt.reason)}`);
+            }
+        });
+
+        // The daily sources only fill gaps. They are a safety net under an
+        // undocumented endpoint, not a second opinion to reconcile against.
+        if (missing.length > 0) {
+            series.push(...(await this.fetchDaily(missing)));
         }
 
-        if (!hasRub) {
-            try {
-                series.push(toSeries("RUB", await fetchCbrRubPerUsd(from, to), "cbr"));
-            } catch (err) {
-                // One missing pair must not fail the other two.
-                this.log.warn(`CBR fallback failed — ${String(err)}`);
-            }
+        if (series.length === 0) {
+            throw new Error("no FX provider returned a usable series");
         }
 
         const order = QUOTES.indexOf.bind(QUOTES);
         return { series: series.sort((a, b) => order(a.quote) - order(b.quote)) };
+    }
+
+    /** Daily-reference fallback: Frankfurter, plus CBR for the ruble. */
+    private async fetchDaily(quotes: Quote[]): Promise<FxSeries[]> {
+        const to = DateTime.now().setZone(TIMEZONE).startOf("day");
+        const from = to.minus({ days: WINDOW_DAYS });
+
+        const needsRub = quotes.includes("RUB");
+        const hasRub = needsRub ? await this.probeRubSupport() : false;
+        const viaFrankfurter = quotes.filter((q) => q !== "RUB" || hasRub);
+
+        const series: FxSeries[] = [];
+        try {
+            const byQuote = await this.fetchFrankfurter(from, viaFrankfurter);
+            for (const quote of viaFrankfurter) {
+                series.push(toSeries(quote, byQuote[quote] ?? [], "frankfurter"));
+            }
+        } catch (err) {
+            this.log.warn(`Frankfurter fallback failed — ${String(err)}`);
+        }
+
+        if (needsRub && !hasRub) {
+            try {
+                series.push(toSeries("RUB", await fetchCbrRubPerUsd(from, to), "cbr"));
+            } catch (err) {
+                // One missing pair must not fail the others.
+                this.log.warn(`CBR fallback failed — ${String(err)}`);
+            }
+        }
+        return series;
     }
 
     /**
@@ -140,6 +176,8 @@ function toSeries(quote: Quote, points: FxPoint[], source: FxSeries["source"]): 
         base: BASE,
         points,
         latest: last?.rate ?? null,
+        // Daily reference rates carry no intraday timestamp.
+        asOf: null,
         changePct:
             first && last && first.rate !== 0
                 ? ((last.rate - first.rate) / first.rate) * 100
