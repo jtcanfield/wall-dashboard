@@ -43,7 +43,13 @@ export function WeatherPanel({ entry, luften }: Props) {
   }, [series]);
 
   useLayoutEffect(() => {
-    chart.current?.redraw();
+    // `redraw(false)`, never `redraw()`. The default rebuilds paths, which
+    // internally re-pins the x scale to `scaleX.min/max` — and uPlot converges
+    // scales asynchronously, so when luften and weather arrive in the same
+    // commit this runs while that range is still null and pins x to null
+    // permanently. The result is a chart with correct axes and no plotted
+    // series. Only the bands changed here, so skip the path rebuild entirely.
+    chart.current?.redraw(false);
   }, [luften]);
 
   return (
