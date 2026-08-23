@@ -65,6 +65,10 @@ export function WeatherPanel({ entry, luften }: Props) {
             <i class="swatch" style="background: var(--dew)" />
             Dewpoint
           </span>
+          <span>
+            <i class="swatch swatch--bar" />
+            Rain chance
+          </span>
           <Stale entry={entry} expectedMs={EXPECTED_INTERVAL_MS.weather} />
         </span>
       </header>

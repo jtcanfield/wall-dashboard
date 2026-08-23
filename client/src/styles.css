@@ -81,7 +81,7 @@ body {
 }
 
 .column--left {
-  grid-template-rows: 1fr 236px;
+  grid-template-rows: 1fr 128px;
 }
 
 .column--right {
@@ -199,56 +199,54 @@ body {
 
 /* ---------------------------------------------------------------- luften */
 
-.luften {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  height: 100%;
-}
-
-.luften__day {
+.luften__windows {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  border-radius: 8px;
-  background: #10161d;
-  border: 1px solid var(--border);
-  padding: 12px 14px;
-  min-height: 0;
-}
-
-.luften__date {
-  font-size: 15px;
-  color: var(--ink-dim);
-  letter-spacing: 0.04em;
+  align-items: center;
+  gap: 28px;
 }
 
 .luften__window {
-  font-size: 22px;
-  font-variant-numeric: tabular-nums;
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 10px;
+  font-variant-numeric: tabular-nums;
 }
 
-.luften__window--all-day {
-  color: var(--good);
+.luften__window b {
+  font-size: 30px;
   font-weight: 600;
 }
 
-.luften__window--exchange {
+.luften__window small {
+  font-size: 14px;
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+}
+
+.luften__window--all-day b {
+  color: var(--good);
+}
+
+.luften__window--exchange b {
   color: var(--accent);
+  font-size: 24px;
+  font-weight: 500;
 }
 
 .luften__none {
-  font-size: 18px;
+  font-size: 26px;
   color: var(--ink-faint);
 }
 
 .luften__indoor {
-  margin-top: auto;
   font-size: 13px;
   color: var(--ink-faint);
+}
+
+/* A bar swatch, for the rain-chance series in the weather legend. */
+.swatch--bar {
+  background: rgba(88, 166, 255, 0.45);
+  border: 1px solid rgba(88, 166, 255, 0.7);
 }
 
 /* -------------------------------------------------------------------- fx */

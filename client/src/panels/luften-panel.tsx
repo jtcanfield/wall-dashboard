@@ -1,66 +1,53 @@
-import { DateTime } from 'luxon';
-import type { LuftenDay, LuftenState } from '@shared/types';
+import type { LuftenState } from '@shared/types';
 import { clockTime } from '../time';
 
 interface Props {
   luften: LuftenState | null;
 }
 
-const label = (date: string): string => {
-  const day = DateTime.fromISO(date);
-  const today = DateTime.now().startOf('day');
-  if (day.hasSame(today, 'day')) return 'Today';
-  if (day.hasSame(today.plus({ days: 1 }), 'day')) return 'Tomorrow';
-  return day.toFormat('cccc');
-};
-
-function Day({ day, isToday }: { day: LuftenDay; isToday: boolean }) {
+/**
+ * Today only, in a single short bar.
+ *
+ * The 3-day lookahead strip is still computed and still travels in the state
+ * payload — it just isn't drawn. In a Raleigh summer every one of those days
+ * reads "None", so four boxes of mostly-nothing were spending the left
+ * column's height on a signal that is empty for months at a time. The height
+ * goes to the weather chart instead.
+ */
+export function LuftenPanel({ luften }: Props) {
   // All-day windows sit inside exchange windows, so show them first — they are
   // the stronger signal and the one the owner is actually picturing.
-  const windows = [...day.windows].sort((a, b) =>
+  const windows = [...(luften?.today.windows ?? [])].sort((a, b) =>
     a.kind === b.kind ? a.start.localeCompare(b.start) : a.kind === 'all-day' ? -1 : 1,
   );
 
   return (
-    <div class="luften__day">
-      <span class="luften__date">{label(day.date)}</span>
-      {windows.length === 0 ? (
-        // An explicit empty state: in a Raleigh summer the 67–75°F band is
-        // empty most days, and a blank panel reads as a bug.
-        <span class="luften__none">{isToday ? 'No window today' : 'None'}</span>
-      ) : (
-        windows.slice(0, 3).map((w) => (
-          <span key={`${w.kind}-${w.start}`} class={`luften__window luften__window--${w.kind}`}>
-            {clockTime(w.start)}–{clockTime(w.end)}
-            {w.kind === 'exchange' && <small style="font-size: 13px">burst</small>}
-          </span>
-        ))
-      )}
-    </div>
-  );
-}
-
-export function LuftenPanel({ luften }: Props) {
-  return (
-    <section class="panel">
+    <section class="panel luften">
       <header class="panel__head">
-        <span class="panel__title">Luften</span>
+        <span class="panel__title">Luften today</span>
         {luften && (
           <span class="luften__indoor">
-            indoor {Math.round(luften.indoorDewPointF)}°F dewpoint ({luften.indoorSource})
+            indoor {Math.round(luften.indoorDewPointF)}°F dewpoint · {luften.indoorSource}
           </span>
         )}
       </header>
-      <div class="panel__body">
+
+      <div class="panel__body luften__windows">
         {!luften ? (
           <span class="empty">Waiting for weather…</span>
+        ) : windows.length === 0 ? (
+          // Explicit, not blank: the 67–75°F band is empty most of a Raleigh
+          // summer, and an empty panel reads as a bug.
+          <span class="luften__none">No window today</span>
         ) : (
-          <div class="luften">
-            <Day day={luften.today} isToday />
-            {luften.lookahead.map((d) => (
-              <Day key={d.date} day={d} isToday={false} />
-            ))}
-          </div>
+          windows.slice(0, 4).map((w) => (
+            <span key={`${w.kind}-${w.start}`} class={`luften__window luften__window--${w.kind}`}>
+              <b>
+                {clockTime(w.start)}–{clockTime(w.end)}
+              </b>
+              <small>{w.kind === 'all-day' ? 'open all day' : 'burst'}</small>
+            </span>
+          ))
         )}
       </div>
     </section>

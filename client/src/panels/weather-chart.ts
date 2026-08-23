@@ -3,6 +3,7 @@ import type { AlignedData, Options } from 'uplot';
 import { DateTime } from 'luxon';
 import type { LuftenState, LuftenWindow, WeatherHour } from '@shared/types';
 import { localMillis } from '../time';
+import { alpha, cssVar as css } from '../colors';
 
 /** Hours of history kept on screen, and how far ahead the chart looks. */
 const HOURS_BEHIND = 3;
@@ -11,15 +12,10 @@ const HOURS_AHEAD = 33;
 /** Local hours at which a vertical commute marker is drawn. */
 const COMMUTE_HOURS = [8, 15];
 
+/** Rain-chance bars: 70% of the hour slot, capped so a short window doesn't slab. */
+const bars = uPlot.paths.bars?.({ size: [0.7, 26] });
+
 export type WeatherSeries = AlignedData;
-
-const css = (name: string): string =>
-  getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#888';
-
-const alpha = (hex: string, a: number): string => {
-  const n = parseInt(hex.replace('#', ''), 16);
-  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
-};
 
 export function buildSeries(hourly: WeatherHour[]): WeatherSeries {
   const from = Date.now() - HOURS_BEHIND * 3_600_000;
@@ -30,11 +26,12 @@ export function buildSeries(hourly: WeatherHour[]): WeatherSeries {
     return t >= from && t <= to;
   });
 
+  // Rain chance comes second so uPlot draws it first, behind both lines.
   return [
     visible.map((h) => localMillis(h.time) / 1000),
+    visible.map((h) => h.precipitationProbability),
     visible.map((h) => h.temperatureF),
     visible.map((h) => h.dewPointF),
-    visible.map((h) => h.precipitationProbability),
   ];
 }
 
@@ -154,15 +151,19 @@ export function chartOptions(
     ],
     series: [
       {},
+      {
+        // Hourly chance of rain, as bars rising from the baseline. A line-and-
+        // fill was unreadable: on a dry day it sits flat against the bottom
+        // axis and looks like chart furniture rather than data.
+        scale: 'pct',
+        label: 'Rain',
+        stroke: alpha(css('--accent'), 0.55),
+        fill: alpha(css('--accent'), 0.3),
+        width: 1,
+        paths: bars,
+      },
       { scale: 'temp', label: 'Temp', stroke: css('--temp'), width: 3 },
       { scale: 'temp', label: 'Dewpoint', stroke: css('--dew'), width: 3, dash: [8, 4] },
-      {
-        scale: 'pct',
-        label: 'Precip',
-        stroke: alpha(css('--accent'), 0.45),
-        fill: alpha(css('--accent'), 0.12),
-        width: 1,
-      },
     ],
   };
 }
