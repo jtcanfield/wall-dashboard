@@ -77,20 +77,42 @@ export class CollectionService implements OnModuleInit {
                 `&before=${today.plus({ days: LOOKAHEAD_DAYS }).toFormat("yyyy-LL-dd")}`;
 
             const res = await getJson<RecollectResponse>(url);
-            const events = (res.events ?? []).flatMap((e): CollectionEvent[] => {
-                if (!e.day) {
-                    return [];
+
+            // `nomerge=1` returns one event object per flag, so a single pickup
+            // day arrives as several entries — verified 2026-08-23, where
+            // 2026-08-25 came back twice, once garbage and once yardwaste.
+            // Grouping by date is what turns that into one reminder per day
+            // instead of one per service.
+            const byDate = new Map<string, Set<Service>>();
+            for (const event of res.events ?? []) {
+                if (!event.day) {
+                    continue;
                 }
-                const services = [
-                    ...new Set((e.flags ?? []).map((f) => classify(f.name ?? f.subject ?? ""))),
-                ].filter((s) => s !== "other");
-                return services.length > 0 ? [{ date: e.day, services }] : [];
-            });
+                for (const flag of event.flags ?? []) {
+                    const service = classify(flag.name ?? flag.subject ?? "");
+                    // 'other' covers ReCollect's own markers — holiday notices
+                    // and the like — which are not collections.
+                    if (service === "other") {
+                        continue;
+                    }
+                    const services = byDate.get(event.day) ?? new Set<Service>();
+                    services.add(service);
+                    byDate.set(event.day, services);
+                }
+            }
+
+            const events: CollectionEvent[] = [...byDate.entries()]
+                .map(([date, services]) => ({ date, services: [...services] }))
+                .sort((a, b) => a.date.localeCompare(b.date));
 
             if (events.length === 0) {
                 throw new Error("ReCollect returned no usable events");
             }
-            return events.sort((a, b) => a.date.localeCompare(b.date));
+            this.log.log(
+                `ReCollect: ${events.length} pickups — ` +
+                    events.map((e) => `${e.date} ${e.services.join("+")}`).join(", "),
+            );
+            return events;
         } catch (err) {
             this.log.warn(`ReCollect failed, using weekly fallback — ${String(err)}`);
             return fallbackSchedule(today, LOOKAHEAD_DAYS);
