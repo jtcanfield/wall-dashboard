@@ -125,6 +125,7 @@ body {
 /* --------------------------------------------------------------- top bar */
 
 .topbar {
+    position: relative;
     /* Overrides .panel column direction — the bar runs across, and the clock
        depends on margin-left:auto pushing it to the far end of a row. */
     flex-direction: row;
@@ -210,11 +211,72 @@ body {
 }
 
 .topbar__clock {
-    margin-left: auto;
+    /* The world clock now carries margin-left:auto, so this just sits after it. */
+    margin-left: 26px;
     font-size: 30px;
     font-variant-numeric: tabular-nums;
     color: var(--ink-dim);
     font-weight: 500;
+}
+
+/* A thin strip down the left edge that fills over one rotation interval, so
+   the flip is telegraphed rather than sudden. Duration is set inline from
+   ROTATE_MS to keep the timing in one place. */
+.topbar__progress {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    background: var(--accent);
+    transform-origin: bottom center;
+    animation-name: topbar-progress;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+}
+
+@keyframes topbar-progress {
+    from {
+        transform: scaleY(0);
+    }
+    to {
+        transform: scaleY(1);
+    }
+}
+
+/* --------------------------------------------------------------- world clock */
+
+.worldclock {
+    display: flex;
+    align-items: baseline;
+    gap: 20px;
+    margin-left: auto;
+    padding-right: 4px;
+}
+
+.worldclock__zone {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+}
+
+.worldclock__label {
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+}
+
+.worldclock__time {
+    font-size: 22px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-dim);
+}
+
+.worldclock__day {
+    font-size: 11px;
+    color: var(--ink-faint);
+    margin-left: 2px;
 }
 
 /* ----------------------------------------------------------------- stale */
@@ -442,4 +504,10 @@ body {
     padding: 1px 4px;
     margin-left: 8px;
     vertical-align: 2px;
+}
+
+.fx__asof {
+    font-size: 14px;
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
 }

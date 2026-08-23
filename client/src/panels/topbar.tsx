@@ -3,6 +3,7 @@ import type { ComponentChildren } from "preact";
 import type { LuftenState, Reminder } from "@shared/types";
 import { clockTime } from "../time";
 import { useRotation } from "../use-rotation";
+import { WorldClock } from "./world-clock";
 
 interface Props {
     reminders: Reminder[];
@@ -98,11 +99,24 @@ export function TopBar({ reminders, luften, now }: Props) {
 
     return (
         <section class="panel topbar">
+            {/* Times the flip, so the change never arrives unannounced. Keyed by
+                the rotation index so it restarts in step with the face; omitted
+                entirely when there is nothing to rotate to. */}
+            {faces.length > 1 && (
+                <span
+                    class="topbar__progress"
+                    key={`progress-${index}`}
+                    style={{ animationDuration: `${ROTATE_MS}ms` }}
+                />
+            )}
+
             {/* Keyed by face id so Preact replaces the node on every change,
                 which restarts the flip animation without any imperative code. */}
             <div class="topbar__face" key={face.id}>
                 {face.body}
             </div>
+
+            <WorldClock now={now} />
             <span class="topbar__clock">{now.toFormat("cccc d LLLL · h:mm a")}</span>
         </section>
     );

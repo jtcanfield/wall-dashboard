@@ -5,7 +5,13 @@ import type { LuftenState, LuftenWindow, WeatherHour } from "@shared/types";
 import { localMillis } from "../time";
 import { alpha, cssVar as css } from "../colors";
 
-/** Hours of history kept on screen, and how far ahead the chart looks. */
+/**
+ * The chart covers 36 hours: a little context behind, the rest ahead.
+ *
+ * Long enough to carry tomorrow morning's commute marker and any luften
+ * window that opens overnight, short enough that the hourly rain bars stay
+ * wide enough to read.
+ */
 const HOURS_BEHIND = 3;
 const HOURS_AHEAD = 33;
 
