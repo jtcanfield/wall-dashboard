@@ -2,20 +2,17 @@ import type { CacheEntry, FxData, Quote } from '@shared/types';
 import { EXPECTED_INTERVAL_MS } from '@shared/types';
 import { Stale } from '../components/stale';
 import { Sparkline } from './sparkline';
+import { formatRate } from '../colors';
 
 interface Props {
   entry: CacheEntry<FxData>;
 }
 
 const COLOR: Record<Quote, string> = {
-  EUR: 'var(--eur)',
-  CNY: 'var(--cny)',
-  RUB: 'var(--rub)',
+  EUR: '--eur',
+  CNY: '--cny',
+  RUB: '--rub',
 };
-
-/** JPY and RUB run in the tens or hundreds; EUR needs the extra decimals. */
-const format = (quote: Quote, rate: number): string =>
-  rate >= 10 ? rate.toFixed(2) : rate.toFixed(4);
 
 export function FxPanel({ entry }: Props) {
   const series = entry.data?.series ?? [];
@@ -37,9 +34,9 @@ export function FxPanel({ entry }: Props) {
                   <div class="fx__pair">
                     {s.base}/{s.quote}
                   </div>
-                  <div class="fx__rate">{s.latest === null ? '—' : format(s.quote, s.latest)}</div>
+                  <div class="fx__rate">{s.latest === null ? '—' : formatRate(s.latest)}</div>
                 </div>
-                <Sparkline points={s.points} color={COLOR[s.quote]} />
+                <Sparkline points={s.points} colorVar={COLOR[s.quote]} />
                 <div
                   class={`fx__change${
                     s.changePct === null ? '' : s.changePct >= 0 ? ' fx__change--up' : ' fx__change--down'
