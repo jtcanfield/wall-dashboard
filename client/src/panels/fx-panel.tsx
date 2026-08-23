@@ -9,7 +9,7 @@ interface Props {
 
 const COLOR: Record<Quote, string> = {
   EUR: 'var(--eur)',
-  JPY: 'var(--jpy)',
+  CNY: 'var(--cny)',
   RUB: 'var(--rub)',
 };
 

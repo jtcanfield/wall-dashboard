@@ -53,7 +53,7 @@ export interface WeatherData {
 
 /* ----------------------------------------------------------------- currency */
 
-export type Quote = 'EUR' | 'JPY' | 'RUB';
+export type Quote = 'EUR' | 'CNY' | 'RUB';
 
 export interface FxPoint {
   /** YYYY-MM-DD. Business days only — step the line, never diagonal across a weekend. */

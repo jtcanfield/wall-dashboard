@@ -8,7 +8,7 @@ import { TIMEZONE, stagger } from '../stagger';
 import { fetchCbrRubPerUsd } from './cbr';
 
 const BASE = 'USD';
-const QUOTES: Quote[] = ['EUR', 'JPY', 'RUB'];
+const QUOTES: Quote[] = ['EUR', 'CNY', 'RUB'];
 const WINDOW_DAYS = 30;
 
 /** GET /v2/currencies returns a flat array, not a code -> name map. */
