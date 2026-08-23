@@ -54,7 +54,11 @@ export class NewsService implements OnModuleInit {
             throw new Error(`all ${failures} feeds produced nothing`);
         }
 
-        return interleaveBySource(items).slice(0, MAX_ITEMS);
+        // Newest first, across all sources. Compared as instants rather than as
+        // ISO strings: two feeds can legitimately report the same moment with
+        // different UTC offsets, and a lexical compare would then order them by
+        // the offset instead of by the time.
+        return items.sort((a, b) => publishedMillis(b) - publishedMillis(a)).slice(0, MAX_ITEMS);
     }
 
     private async fetchFeed(feed: FeedSource): Promise<NewsItem[]> {
@@ -113,7 +117,7 @@ export class NewsService implements OnModuleInit {
                 ];
             })
             .filter((i) => DateTime.fromISO(i.publishedAt) > cutoff)
-            .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
+            .sort((a, b) => publishedMillis(b) - publishedMillis(a))
             .slice(0, MAX_PER_SOURCE);
 
         if (rejected.size > 0) {
@@ -141,49 +145,17 @@ export class NewsService implements OnModuleInit {
 }
 
 /**
- * Round-robin the sources instead of sorting the merged list by recency.
+ * Publish instant, for ordering.
  *
- * Straight recency ordering is wrong for this panel. BBC World publishes far
- * more often than the others, so it took six of the nine visible slots and the
- * Russian source — the one with a whole translation pipeline behind it — never
- * appeared at all. Nine slots out of ~22 candidates makes breadth worth more
- * than strict ordering.
- *
- * Queues are seeded in order of their freshest item, so the top slot is still
- * the newest headline overall; only the slots below it are shared out.
+ * The feed panel is sorted strictly newest-first across every source. An
+ * earlier version round-robined the sources so each stayed visible, because
+ * BBC World publishes several times an hour and was taking six of the nine
+ * slots. That was reverted deliberately: on a wall display the top line should
+ * be the newest thing that has happened, not the newest thing from whichever
+ * source is due a turn. MAX_PER_SOURCE still caps how much any one feed can
+ * contribute to the pool, which is the only balancing left.
  */
-function interleaveBySource(items: NewsItem[]): NewsItem[] {
-    const bySource = new Map<string, NewsItem[]>();
-    for (const item of items) {
-        const queue = bySource.get(item.source);
-        if (queue) {
-            queue.push(item);
-        } else {
-            bySource.set(item.source, [item]);
-        }
-    }
-
-    for (const queue of bySource.values()) {
-        queue.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
-    }
-
-    const queues = [...bySource.values()].sort((a, b) =>
-        (b[0]?.publishedAt ?? "").localeCompare(a[0]?.publishedAt ?? ""),
-    );
-
-    const out: NewsItem[] = [];
-    for (let round = 0; out.length < items.length; round++) {
-        let addedAny = false;
-        for (const queue of queues) {
-            const item = queue[round];
-            if (item) {
-                out.push(item);
-                addedAny = true;
-            }
-        }
-        if (!addedAny) {
-            break;
-        }
-    }
-    return out;
+function publishedMillis(item: NewsItem): number {
+    const at = DateTime.fromISO(item.publishedAt);
+    return at.isValid ? at.toMillis() : 0;
 }
