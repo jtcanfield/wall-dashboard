@@ -1,0 +1,411 @@
+/*
+ * One fixed 1920x1080 stage, scaled by JS. Nothing here is responsive on
+ * purpose: the layout is designed for exactly one screen.
+ *
+ * Colours are deliberately low-luminance. This panel is on for sixteen hours a
+ * day in a living room with the backlight turned well down.
+ */
+
+:root {
+  --bg: #0d1117;
+  --panel: #151b23;
+  --border: #232c38;
+  --ink: #e6edf3;
+  --ink-dim: #8b98a5;
+  --ink-faint: #5a6673;
+
+  --accent: #58a6ff;
+  --warm: #f0883e;
+  --good: #3fb950;
+  --live: #f04747;
+
+  --temp: #f0883e;
+  --dew: #58a6ff;
+  --eur: #58a6ff;
+  --jpy: #bc8cff;
+  --rub: #f0883e;
+
+  --gap: 16px;
+  --radius: 10px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  background: #000;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Noto Sans', 'Segoe UI', system-ui, sans-serif;
+  color: var(--ink);
+  /* No text cursor and no accidental selection on an unattended display. */
+  cursor: none;
+  user-select: none;
+}
+
+#stage {
+  width: 1920px;
+  height: 1080px;
+  transform-origin: top left;
+  background: var(--bg);
+}
+
+.dashboard {
+  display: grid;
+  grid-template-rows: 104px 1fr;
+  grid-template-columns: 1fr;
+  height: 100%;
+  padding: var(--gap);
+  gap: var(--gap);
+}
+
+.dashboard__body {
+  display: grid;
+  /* Weather takes the left ~60%: it carries two overlaid series plus markers. */
+  grid-template-columns: 1132px 1fr;
+  gap: var(--gap);
+  min-height: 0;
+}
+
+.column {
+  display: grid;
+  gap: var(--gap);
+  min-height: 0;
+}
+
+.column--left {
+  grid-template-rows: 1fr 236px;
+}
+
+.column--right {
+  grid-template-rows: 300px 1fr auto;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 22px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex: none;
+}
+
+.panel__title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.panel__body {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ---------------------------------------------------------- reminder bar */
+
+.reminders {
+  display: flex;
+  /* Overrides .panel's column direction — the bar runs across, and the clock
+     depends on margin-left:auto pushing it to the far end of a row. */
+  flex-direction: row;
+  align-items: center;
+  gap: 32px;
+  padding: 0 26px;
+  font-size: 34px;
+  font-weight: 600;
+  overflow: hidden;
+}
+
+.reminders__item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  white-space: nowrap;
+}
+
+.reminders__dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--warm);
+  flex: none;
+}
+
+.reminders--idle {
+  color: var(--ink-faint);
+  font-weight: 400;
+  font-size: 26px;
+}
+
+.reminders__clock {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-dim);
+  font-weight: 500;
+}
+
+/* ----------------------------------------------------------------- stale */
+
+.stale {
+  font-size: 14px;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.stale--error {
+  color: var(--warm);
+}
+
+/* --------------------------------------------------------------- weather */
+
+.weather__chart {
+  width: 100%;
+  height: 100%;
+}
+
+.weather__legend {
+  display: flex;
+  gap: 20px;
+  font-size: 15px;
+  color: var(--ink-dim);
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 7px;
+}
+
+/* ---------------------------------------------------------------- luften */
+
+.luften {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  height: 100%;
+}
+
+.luften__day {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 8px;
+  background: #10161d;
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+  min-height: 0;
+}
+
+.luften__date {
+  font-size: 15px;
+  color: var(--ink-dim);
+  letter-spacing: 0.04em;
+}
+
+.luften__window {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.luften__window--all-day {
+  color: var(--good);
+  font-weight: 600;
+}
+
+.luften__window--exchange {
+  color: var(--accent);
+}
+
+.luften__none {
+  font-size: 18px;
+  color: var(--ink-faint);
+}
+
+.luften__indoor {
+  margin-top: auto;
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+
+/* -------------------------------------------------------------------- fx */
+
+.fx {
+  display: grid;
+  grid-template-rows: repeat(3, 1fr);
+  gap: 10px;
+  height: 100%;
+}
+
+.fx__row {
+  display: grid;
+  grid-template-columns: 108px 1fr 96px;
+  align-items: center;
+  gap: 12px;
+  min-height: 0;
+}
+
+.fx__pair {
+  font-size: 17px;
+  color: var(--ink-dim);
+  letter-spacing: 0.05em;
+}
+
+.fx__rate {
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.fx__spark {
+  height: 100%;
+  min-width: 0;
+}
+
+.fx__change {
+  text-align: right;
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+
+.fx__change--up {
+  color: var(--good);
+}
+
+.fx__change--down {
+  color: var(--warm);
+}
+
+/* ------------------------------------------------------------------ news */
+
+.news {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  overflow: hidden;
+}
+
+.news__item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  align-items: baseline;
+}
+
+.news__title {
+  font-size: 20px;
+  line-height: 1.3;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.news__meta {
+  font-size: 14px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------- twitch */
+
+.twitch {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.twitch__stream {
+  display: grid;
+  grid-template-columns: 148px 1fr;
+  gap: 14px;
+  align-items: center;
+}
+
+.twitch__thumb {
+  width: 148px;
+  height: 83px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #000;
+}
+
+.twitch__name {
+  font-size: 20px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.twitch__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--live);
+  flex: none;
+}
+
+.twitch__title {
+  font-size: 15px;
+  color: var(--ink-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.twitch__meta {
+  font-size: 14px;
+  color: var(--ink-faint);
+}
+
+.empty {
+  font-size: 17px;
+  color: var(--ink-faint);
+}
+
+/* ------------------------------------------------------------ disconnect */
+
+.offline {
+  position: absolute;
+  top: 22px;
+  right: 26px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--live);
+}
+
+/* uPlot overrides so its default light chrome doesn't fight the dark panel. */
+.uplot,
+.u-wrap {
+  font-family: inherit;
+}
+
+.u-axis {
+  color: var(--ink-faint);
+}
