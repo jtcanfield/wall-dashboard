@@ -112,6 +112,25 @@ Getting this wrong hid 67 violations.
 
 Markdown is Prettier-ignored so this file keeps its hand-wrapped prose.
 
+### Dev-loop gotchas, both already paid for
+
+**Vite caches an empty module if it sees a file mid-write.** Truncating a
+source file (a shell heredoc, an editor that writes in two steps) can be
+caught by the watcher during the zero-byte window. Vite then serves an empty
+transform *permanently* and the page dies with
+`does not provide an export named 'X'` while the file on disk is perfectly
+fine. Touching the file fixes it. Write via atomic replace where possible.
+
+**`nest start --watch` and EADDRINUSE — half fixed.** Watch restarts are
+solved and verified (six rapid restarts, zero failures): the outgoing process
+closes on SIGINT/SIGTERM/SIGHUP, and the incoming one retries the bind for
+~10s, dev only. What is *not* solved is an **orphaned** server still holding
+:3000 from a killed terminal — that holder never exits, so the retry just
+delays a raw unhandled-rejection stack dump. `server/src/port.ts` has a
+best-effort port-holder lookup written for this (names the PID and process) but
+is **not wired in**. Finishing that means catching the exhausted-retry case in
+`main.ts` and printing something actionable instead of a stack.
+
 **Commands** (all from the repo root):
 
 ```bash
@@ -198,7 +217,7 @@ blanks because an upstream had a bad minute.
 | Weather | 15 min |
 | News (RSS) | 10 min |
 | Twitch | 90 sec |
-| FX | daily |
+| FX | 15 min |
 | Collection schedule | daily |
 
 Stagger the initial run of each by a few seconds so boot doesn't fire five
@@ -229,7 +248,22 @@ addEventListener('resize', fit); fit();
   glance-first slot and neither fills it, so they take turns; a face with
   nothing to say drops out of the rotation, and a single remaining face holds
   rather than flipping against itself. Honours `prefers-reduced-motion`.
-- Weather chart — left column, 612px. Two overlaid series (temperature and
+  A 5px strip down the **left edge** fills over the rotation interval so the
+  flip is telegraphed rather than sudden. Its duration is set inline from
+  `ROTATE_MS`, and it is keyed by the rotation index so it restarts in step
+  with the face. It is omitted entirely when there is only one face.
+
+  The bar also carries a **world clock** — Berlin, Moscow, Yekaterinburg — in
+  24-hour time, sitting between the rotating face and the local clock. 24-hour
+  because it is read against a local 12-hour clock and an unlabelled "3:40"
+  beside it invites exactly the wrong subtraction. A `+1` marker appears when
+  the zone is already on tomorrow, which for all three is most of the evening
+  here. Use IANA zone names, never fixed offsets: Berlin observes DST, Moscow
+  and Yekaterinburg have not since 2014.
+- Weather chart — left column, 612px. **A fixed 36-hour window** (3 hours
+  behind, 33 ahead) — long enough to carry tomorrow morning's commute marker
+  and any overnight luften window, short enough that the hourly rain bars stay
+  wide enough to read. Two overlaid series (temperature and
   dewpoint), hourly rain-chance bars behind them, commute markers and luften
   bands on top.
 - Currency — left column, under the weather, 300px. Three pairs **side by
@@ -271,7 +305,39 @@ offset math yourself. This makes the 8am/3pm markers survive DST for free.
 
 Fallback: `api.weather.gov` (NWS, free, no key).
 
-### Currency — Frankfurter
+### Currency — Yahoo Finance, with daily-reference fallbacks
+
+**The pairs are USD→EUR, USD→RUB, USD→CNY, in that order.** The order is the
+owner's; it is not alphabetical and not a bug.
+
+The panel exists to answer "should I exchange money now?", which a once-a-day
+reference rate cannot support. Measured 2026-08-23 (a Sunday):
+
+| Source | Freshness |
+|---|---|
+| Frankfurter (ECB reference) | still serving **Friday's** figures |
+| open.er-api | one update per 24h |
+| **Yahoo Finance chart API** | live price, minute-level `regularMarketTime` |
+
+So the primary is `query1.finance.yahoo.com/v8/finance/chart/USD<QUOTE>=X`,
+polled every **15 minutes**.
+
+- Use the **direct USD-based symbols** (`USDEUR=X`, not `EURUSD=X`). All three
+  exist. Inverting would need `1/x` and would quietly lose precision across the
+  whole chart history.
+- `interval=1d&range=1mo` gives the month of daily closes for the sparkline
+  **and** the live price, because `meta.regularMarketPrice` is present
+  regardless of candle interval. One request per pair covers both.
+- `FxSeries.asOf` carries the market timestamp — not our fetch time. The panel
+  shows it as "live 7:46 PM". Daily sources leave it null.
+- Requires a browser-ish `User-Agent` or it 404s.
+
+**It is undocumented and unversioned**, so it is wrapped, never trusted alone.
+Failure falls through per-pair to Frankfurter, and RUB falls further to CBR.
+Same posture as the ReCollect feed: use it, but never let it be the only thing
+between the panel and a number.
+
+#### Frankfurter — now the fallback
 
 Free, no key, no quota. Multi-provider (84 central banks, 201 currencies).
 
@@ -370,12 +436,19 @@ Display **headline + source + timestamp only**. No article bodies — space, and
 republishing full text isn't ours to do. The timestamp is the absolute publish
 time (`3:34 PM`), with a weekday prefix for anything not from today.
 
-**Ordering is round-robin across sources, not merged recency.** BBC World
-publishes several times an hour and the others do not, so a flat recency sort
-gave BBC six of the nine visible slots and Новая zero — the source with an
-entire translation pipeline behind it never appeared. The queues are seeded by
-their freshest item, so the top slot is still the newest headline overall and
-only the slots beneath it are shared out.
+**Ordering is strictly newest-first across all sources.** The top line is the
+newest thing that has happened, full stop.
+
+A round-robin interleave was tried and **deliberately reverted** — don't
+reintroduce it without asking. The motivation was real: BBC World publishes
+several times an hour and takes roughly six of the nine visible slots under a
+flat sort, which can leave Новая — the source with an entire translation
+pipeline behind it — off screen. That was judged the lesser problem. On a wall
+display, an item's position should mean "how recent", not "whose turn it is".
+`MAX_PER_SOURCE` capping the pool is the only balancing left.
+
+Compare instants, not ISO strings. Two feeds can report the same moment with
+different UTC offsets, and a lexical compare then sorts by the offset.
 
 ### Collection schedule — ReCollect
 
@@ -392,6 +465,13 @@ stripped.
 This resolves holiday shifts and Schedule A/B recycling parity **at the source**,
 so no hand-maintained holiday table is needed. (For reference: only Thanksgiving
 affects Raleigh collection in 2026.)
+
+**`nomerge=1` returns one event object per flag, not per day.** Verified
+2026-08-23 with the real place/service IDs: `2026-08-25` came back twice, once
+`garbage` and once `yardwaste`. Group by date before building reminders or the
+bar says "Trash out" and "Yard waste out" as two separate lines for the same
+morning. Flags that classify as `other` are ReCollect's own markers — holiday
+notices and the like — and are dropped.
 
 Caveat: undocumented endpoint. Poll daily, cache, and keep a hardcoded weekly
 fallback so a schema change doesn't blank the reminder bar.
