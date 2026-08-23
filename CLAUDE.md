@@ -76,6 +76,22 @@ wall-dashboard/
   shared/    types.ts — DashboardState, the one contract between the two
 ```
 
+### Commits
+
+Claude commits its own work, in small units, as it goes — not one batch at the
+end. The owner pushes; **Claude never pushes**.
+
+- One logical change per commit. Split a session's work into several.
+- Every commit must leave the tree type-checking and the tests passing. Where
+  a change spans files (a type in `shared/` plus both consumers), those files
+  go in the same commit rather than producing an intermediate that fails.
+- Conventional-commit prefixes: `feat`, `fix`, `docs`, `chore`, `refactor`,
+  `test`, scoped by area — `fix(client):`, `feat(news):`, `docs(claude):`.
+- The subject says what changed and, when it isn't obvious, why. Findings that
+  cost real debugging time belong in the body.
+- **No `Co-Authored-By` trailer and no tool attribution.** The owner's name is
+  the only one on these commits.
+
 **Commands** (all from the repo root):
 
 ```bash
@@ -106,6 +122,16 @@ alongside it, which means `server/src/x.ts` emits to `server/dist/server/src/x.j
   Celeron-class box; React's 45KB buys nothing here.
 - **uPlot** over Chart.js — built for long-running dashboards, tiny, doesn't leak
   across a 16-hour uninterrupted session.
+
+  **uPlot trap, already paid for once: never call `redraw()` with no argument.**
+  The default (`rebuildPaths = true`) internally re-pins the x scale via
+  `_setScale('x', scaleX.min, scaleX.max)`. uPlot converges scales
+  *asynchronously*, so if a `redraw()` lands in the same commit as the
+  `setData()` that supplied the data — which is exactly what happens when
+  weather and luften arrive in the same SSE frame — it reads a still-null range
+  and pins x to `null` permanently. The chart then renders correct axes, a
+  correct y range, and no plotted series at all, with no console error. Use
+  `redraw(false)` whenever only the overlay changed.
 - **Luxon** for time. Server process pinned to `TZ=America/New_York`. Never
   hand-roll DST math.
 
@@ -182,7 +208,8 @@ addEventListener('resize', fit); fit();
   text length without reflowing anything else.
 - Weather chart — left ~60%, full remaining height. Largest because it carries two
   overlaid series plus markers and bands.
-- FX panels — right column, three stacked sparklines.
+- FX panels — right column, three stacked sparklines: USD/EUR, USD/CNY,
+  USD/RUB over a rolling 30-day window.
 - News feed — right column, below FX.
 - Twitch panel — placement TBD (see open decisions).
 
@@ -218,7 +245,7 @@ Fallback: `api.weather.gov` (NWS, free, no key).
 Free, no key, no quota. Multi-provider (84 central banks, 201 currencies).
 
 ```
-https://api.frankfurter.dev/v2/rates?from=<YYYY-MM-DD>&base=USD&quotes=EUR,JPY,RUB
+https://api.frankfurter.dev/v2/rates?from=<YYYY-MM-DD>&base=USD&quotes=EUR,CNY,RUB
 ```
 
 **Both v2 endpoints return flat arrays, not the keyed maps v1 used.** This is the
@@ -247,20 +274,77 @@ the line; don't draw a straight diagonal across Saturday and Sunday.
 Use `rss-parser`. Must be server-side: RSS feeds don't send CORS headers, so the
 browser physically cannot fetch them.
 
-Both URLs verified 2026-08-23 — the obvious guesses are wrong:
+**CNN is gone — do not put it back without checking freshness.** Every CNN RSS
+endpoint is abandoned (measured 2026-08-23): `cnn_topstories` last published
+April 2023, `cnn_allpolitics` June 2024, `cnn_world` September 2023.
 
-- CNN: `http://rss.cnn.com/rss/cnn_topstories.rss` — **http only.** The https
-  form fails at the TLS layer. Plaintext is acceptable for a LAN-only display
-  pulling public headlines.
-- Novaya Gazeta: `https://novayagazeta.ru/feed/rss`. `/contents/rss`,
-  `/rss/all.xml` and `/rss` all 404.
+The failure mode was worse than an empty feed. CNN's stale entries *are* dated,
+so the age cutoff dropped them — while the `cnn-underscored` commerce pages are
+**undated**, so they sailed straight through it. The panel degraded into
+nothing but "50+ products to make your life easier" and Mother's Day gift
+guides. An age filter alone inverts into a filler filter when a feed dies.
 
-Each feed carries a list of candidate URLs tried in order, and the server
-remembers which one worked. Publishers move feed paths and nobody is watching
-this screen.
+Current sources, all verified fresh and 100% dated:
 
-Display **headline + source + relative timestamp only**. No article bodies —
-space, and republishing full text isn't ours to do.
+| Source | Feed | Scope |
+|---|---|---|
+| NPR | `feeds.npr.org/1014/rss.xml` | US politics |
+| PBS | `pbs.org/newshour/feeds/rss/politics` | US politics |
+| BBC | `feeds.bbci.co.uk/news/world/rss.xml` | Global |
+| Новая | `novayagazeta.ru/feed/rss` | Russia, translated |
+
+Each feed carries candidate URLs tried in order and the server remembers which
+one worked. `maxAgeHours` is per-feed: Новая gets 48h because it published
+exactly one item inside 24h on a Sunday, and a source that silently vanishes
+reads as a bug.
+
+### Filler filtering — `sources/news/filter.ts`
+
+Three independent rules, because any one alone leaks:
+
+1. **Undated items are dropped outright.** This is the decisive rule: real
+   reporting is always dated, evergreen commerce pages usually are not.
+2. **Section path match.** Tokens of the *first two path segments only*, split
+   on hyphens, checked against a set (`underscored`, `deals`, `sport`,
+   `lifestyle`, …). Deliberately not a substring match over the whole path — a
+   naive one rejects `/news/transport-strike` for containing "sport" and
+   `/politics/trump-deals-with-congress` for "deals". There is a test for this.
+3. **Headline shape.** Listicles, gift guides, price/deal language, and
+   first-person advocacy (`we tested…`, `…and you should too`), which is a
+   reliable commerce tell — news desks report in the third person.
+
+BBC files everything under `/news/`, so its occasional culture piece is not
+path-separable. That leak is accepted.
+
+### Translation — MyMemory
+
+Russian headlines are machine translated to English. `novayagazeta.eu`
+publishes in Russian too, so switching editions would not have avoided this.
+
+`api.mymemory.translated.net` — free, no key, good quality. Every Lingva and
+LibreTranslate public instance tried returned 500 or a Cloudflare challenge.
+
+- **Fail-open.** Any error, quota exhaustion, or malformed response leaves the
+  original Cyrillic in place. Same principle as the cache contract: stale or
+  untranslated beats blank.
+- Results are cached forever and translation runs *after* filtering and
+  capping, so the quota is never spent on headlines that were never going to be
+  shown.
+- 5,000 chars/day anonymous, 50,000 with a contact address in `MYMEMORY_EMAIL`.
+  Opt-in only — that address is sent with every request.
+- The client marks translated headlines with a small `RU` badge and keeps the
+  original in `titleOriginal`. Machine translation should be visible as such.
+
+Display **headline + source + timestamp only**. No article bodies — space, and
+republishing full text isn't ours to do. The timestamp is the absolute publish
+time (`3:34 PM`), with a weekday prefix for anything not from today.
+
+**Ordering is round-robin across sources, not merged recency.** BBC World
+publishes several times an hour and the others do not, so a flat recency sort
+gave BBC six of the nine visible slots and Новая zero — the source with an
+entire translation pipeline behind it never appeared. The queues are seeded by
+their freshest item, so the top slot is still the newest headline overall and
+only the slots beneath it are shared out.
 
 ### Collection schedule — ReCollect
 
