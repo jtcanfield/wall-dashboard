@@ -20,8 +20,7 @@
         "lint": "eslint .",
         "lint:fix": "eslint . --fix",
         "typecheck": "tsc -p server/tsconfig.json --noEmit && tsc -p client/tsconfig.json --noEmit",
-        "check": "npm run format:check && npm run lint && npm run typecheck && npm test",
-        "hooks:install": "git config core.hooksPath .githooks"
+        "check": "npm run format:check && npm run lint && npm run typecheck && npm test"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
