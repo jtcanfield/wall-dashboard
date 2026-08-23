@@ -12,11 +12,11 @@ export const cToF = (c: number): number => (c * 9) / 5 + 32;
  * dewpoint first.
  */
 export function dewPointC(tempC: number, relativeHumidity: number): number {
-  const rh = Math.min(Math.max(relativeHumidity, 0.1), 100);
-  const alpha = Math.log(rh / 100) + (A * tempC) / (B + tempC);
-  return (B * alpha) / (A - alpha);
+    const rh = Math.min(Math.max(relativeHumidity, 0.1), 100);
+    const alpha = Math.log(rh / 100) + (A * tempC) / (B + tempC);
+    return (B * alpha) / (A - alpha);
 }
 
 export function dewPointF(tempF: number, relativeHumidity: number): number {
-  return cToF(dewPointC(fToC(tempF), relativeHumidity));
+    return cToF(dewPointC(fToC(tempF), relativeHumidity));
 }

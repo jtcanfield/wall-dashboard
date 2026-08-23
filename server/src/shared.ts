@@ -7,4 +7,4 @@
  * *runtime* means adding tsc-alias or tsconfig-paths — tooling this repo has
  * deliberately gone without.
  */
-export * from '../../shared/types';
+export * from "../../shared/types";

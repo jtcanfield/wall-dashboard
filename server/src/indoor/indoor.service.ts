@@ -1,13 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { dewPointF } from '../luften/dewpoint';
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { dewPointF } from "../luften/dewpoint";
 
 export interface IndoorReading {
-  tempF: number;
-  relativeHumidity: number;
-  dewPointF: number;
-  source: 'assumed' | 'sensor';
-  at: string;
+    tempF: number;
+    relativeHumidity: number;
+    dewPointF: number;
+    source: "assumed" | "sensor";
+    at: string;
 }
 
 /** A sensor reading older than this falls back to the assumed constants. */
@@ -22,35 +22,35 @@ const SENSOR_STALE_MS = 30 * 60_000;
  */
 @Injectable()
 export class IndoorService {
-  private readonly log = new Logger(IndoorService.name);
-  private latest: IndoorReading | null = null;
+    private readonly log = new Logger(IndoorService.name);
+    private latest: IndoorReading | null = null;
 
-  constructor(private readonly config: ConfigService) {}
+    constructor(private readonly config: ConfigService) {}
 
-  record(tempF: number, relativeHumidity: number): IndoorReading {
-    this.latest = {
-      tempF,
-      relativeHumidity,
-      dewPointF: dewPointF(tempF, relativeHumidity),
-      source: 'sensor',
-      at: new Date().toISOString(),
-    };
-    this.log.log(`Indoor sensor: ${tempF}°F / ${relativeHumidity}% RH`);
-    return this.latest;
-  }
-
-  current(): IndoorReading {
-    if (this.latest && Date.now() - Date.parse(this.latest.at) < SENSOR_STALE_MS) {
-      return this.latest;
+    record(tempF: number, relativeHumidity: number): IndoorReading {
+        this.latest = {
+            tempF,
+            relativeHumidity,
+            dewPointF: dewPointF(tempF, relativeHumidity),
+            source: "sensor",
+            at: new Date().toISOString(),
+        };
+        this.log.log(`Indoor sensor: ${tempF}°F / ${relativeHumidity}% RH`);
+        return this.latest;
     }
-    const tempF = this.config.get<number>('INDOOR_TEMP_F', 70);
-    const rh = this.config.get<number>('INDOOR_RH', 50);
-    return {
-      tempF,
-      relativeHumidity: rh,
-      dewPointF: dewPointF(tempF, rh),
-      source: 'assumed',
-      at: new Date().toISOString(),
-    };
-  }
+
+    current(): IndoorReading {
+        if (this.latest && Date.now() - Date.parse(this.latest.at) < SENSOR_STALE_MS) {
+            return this.latest;
+        }
+        const tempF = this.config.get<number>("INDOOR_TEMP_F", 70);
+        const rh = this.config.get<number>("INDOOR_RH", 50);
+        return {
+            tempF,
+            relativeHumidity: rh,
+            dewPointF: dewPointF(tempF, rh),
+            source: "assumed",
+            at: new Date().toISOString(),
+        };
+    }
 }

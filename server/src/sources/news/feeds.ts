@@ -1,19 +1,19 @@
 export interface FeedSource {
-  /** Shown in the panel next to the headline. */
-  label: string;
-  /**
-   * Tried in order. Publishers move their feed paths around and there is no
-   * one to notice on an unattended display, so each source gets candidates.
-   */
-  urls: string[];
-  /** Source language. Anything not 'en' gets machine translated. */
-  language: 'en' | 'ru';
-  /**
-   * Overrides MAX_AGE_HOURS. Low-volume publishers need a longer window or
-   * they vanish from the panel entirely on a quiet day, which reads as a
-   * broken feed rather than a slow news day.
-   */
-  maxAgeHours?: number;
+    /** Shown in the panel next to the headline. */
+    label: string;
+    /**
+     * Tried in order. Publishers move their feed paths around and there is no
+     * one to notice on an unattended display, so each source gets candidates.
+     */
+    urls: string[];
+    /** Source language. Anything not 'en' gets machine translated. */
+    language: "en" | "ru";
+    /**
+     * Overrides MAX_AGE_HOURS. Low-volume publishers need a longer window or
+     * they vanish from the panel entirely on a quiet day, which reads as a
+     * broken feed rather than a slow news day.
+     */
+    maxAgeHours?: number;
 }
 
 /**
@@ -30,32 +30,32 @@ export interface FeedSource {
  * lifestyle content mixed in, and all of them date every item.
  */
 export const FEEDS: FeedSource[] = [
-  {
-    label: 'NPR',
-    urls: ['https://feeds.npr.org/1014/rss.xml'],
-    language: 'en',
-  },
-  {
-    label: 'PBS',
-    urls: ['https://www.pbs.org/newshour/feeds/rss/politics'],
-    language: 'en',
-  },
-  {
-    label: 'BBC',
-    urls: ['https://feeds.bbci.co.uk/news/world/rss.xml'],
-    language: 'en',
-  },
-  {
-    label: 'Новая',
-    // novayagazeta.ru per decision 2. Note the .eu exile edition publishes in
-    // Russian as well, so switching to it would not avoid translation.
-    urls: ['https://novayagazeta.ru/feed/rss'],
-    language: 'ru',
-    // Measured 2026-08-23: 100 items in the feed, exactly one inside 24 hours
-    // on a Sunday, the next seven all 29h+. At the default cutoff this source
-    // is simply absent most of the time.
-    maxAgeHours: 48,
-  },
+    {
+        label: "NPR",
+        urls: ["https://feeds.npr.org/1014/rss.xml"],
+        language: "en",
+    },
+    {
+        label: "PBS",
+        urls: ["https://www.pbs.org/newshour/feeds/rss/politics"],
+        language: "en",
+    },
+    {
+        label: "BBC",
+        urls: ["https://feeds.bbci.co.uk/news/world/rss.xml"],
+        language: "en",
+    },
+    {
+        label: "Новая",
+        // novayagazeta.ru per decision 2. Note the .eu exile edition publishes in
+        // Russian as well, so switching to it would not avoid translation.
+        urls: ["https://novayagazeta.ru/feed/rss"],
+        language: "ru",
+        // Measured 2026-08-23: 100 items in the feed, exactly one inside 24 hours
+        // on a Sunday, the next seven all 29h+. At the default cutoff this source
+        // is simply absent most of the time.
+        maxAgeHours: 48,
+    },
 ];
 
 /** Headlines older than this are dropped. */

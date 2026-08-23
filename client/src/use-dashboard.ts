@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'preact/hooks';
-import type { DashboardState } from '@shared/types';
-import { emptyState } from '@shared/types';
+import { useEffect, useState } from "preact/hooks";
+import type { DashboardState } from "@shared/types";
+import { emptyState } from "@shared/types";
 
 export interface Connection {
-  state: DashboardState;
-  /** False between a dropped connection and EventSource's automatic retry. */
-  connected: boolean;
+    state: DashboardState;
+    /** False between a dropped connection and EventSource's automatic retry. */
+    connected: boolean;
 }
 
 /**
@@ -16,23 +16,23 @@ export interface Connection {
  * a flapping switch port without any code of ours running.
  */
 export function useDashboard(): Connection {
-  const [state, setState] = useState<DashboardState>(emptyState);
-  const [connected, setConnected] = useState(false);
+    const [state, setState] = useState<DashboardState>(emptyState);
+    const [connected, setConnected] = useState(false);
 
-  useEffect(() => {
-    const source = new EventSource('/api/stream');
-    source.onopen = () => setConnected(true);
-    source.onerror = () => setConnected(false);
-    source.onmessage = (event: MessageEvent<string>) => {
-      setConnected(true);
-      try {
-        setState(JSON.parse(event.data) as DashboardState);
-      } catch {
-        // A malformed frame is not worth blanking the display over.
-      }
-    };
-    return () => source.close();
-  }, []);
+    useEffect(() => {
+        const source = new EventSource("/api/stream");
+        source.onopen = () => setConnected(true);
+        source.onerror = () => setConnected(false);
+        source.onmessage = (event: MessageEvent<string>) => {
+            setConnected(true);
+            try {
+                setState(JSON.parse(event.data) as DashboardState);
+            } catch {
+                // A malformed frame is not worth blanking the display over.
+            }
+        };
+        return () => source.close();
+    }, []);
 
-  return { state, connected };
+    return { state, connected };
 }

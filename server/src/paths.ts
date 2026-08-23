@@ -1,4 +1,4 @@
-import * as path from 'node:path';
+import * as path from "node:path";
 
 /**
  * The server workspace root, resolved from the compiled location rather than
@@ -8,7 +8,8 @@ import * as path from 'node:path';
  * which means a file at `server/src/x/y.ts` emits to
  * `server/dist/server/src/x/y.js` — four levels below `server/`, not three.
  */
-export const SERVER_ROOT = path.resolve(__dirname, '..', '..', '..');
+export const SERVER_ROOT = path.resolve(__dirname, "..", "..", "..");
 
-export const dataPath = (...parts: string[]): string => path.join(SERVER_ROOT, 'data', ...parts);
-export const configPath = (...parts: string[]): string => path.join(SERVER_ROOT, 'config', ...parts);
+export const dataPath = (...parts: string[]): string => path.join(SERVER_ROOT, "data", ...parts);
+export const configPath = (...parts: string[]): string =>
+    path.join(SERVER_ROOT, "config", ...parts);

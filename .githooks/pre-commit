@@ -1,0 +1,42 @@
+#!/bin/sh
+#
+# Formatting and lint gate. Enable once per clone with:
+#   npm run hooks:install
+#
+# Only staged files are checked, so an unrelated mess elsewhere in the tree
+# never blocks an otherwise clean commit.
+
+set -e
+
+repo=$(git rev-parse --show-toplevel)
+cd "$repo"
+
+# Call the binaries through node rather than npx: npx's shell wrapper cannot
+# resolve its own install directory when invoked from a hook under Git Bash on
+# Windows, and it is a needless process launch besides.
+PRETTIER="node $repo/node_modules/prettier/bin/prettier.cjs"
+ESLINT="node $repo/node_modules/eslint/bin/eslint.js"
+
+staged() {
+    git diff --cached --name-only --diff-filter=ACMR | grep -E "$1" || true
+}
+
+# Prettier owns every text format in the repo.
+to_format=$(staged '\.(ts|tsx|mjs|js|json|css|html)$')
+
+# ESLint only understands the script files. Handing it JSON or CSS produces
+# "File ignored because no matching configuration" warnings, which
+# --max-warnings=0 then treats as failure.
+to_lint=$(staged '\.(ts|tsx|mjs|js)$')
+
+if [ -n "$to_format" ]; then
+    echo "pre-commit: checking formatting"
+    echo "$to_format" | xargs $PRETTIER --check
+fi
+
+if [ -n "$to_lint" ]; then
+    echo "pre-commit: linting"
+    echo "$to_lint" | xargs $ESLINT --max-warnings=0
+fi
+
+echo "pre-commit: ok"
