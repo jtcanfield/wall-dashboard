@@ -409,3 +409,24 @@ body {
 .u-axis {
   color: var(--ink-faint);
 }
+
+.news__time {
+  display: block;
+  color: var(--ink-faint);
+  opacity: 0.8;
+}
+
+/* Marks a machine-translated headline. Small and unobtrusive, but present —
+   the reader should know the wording is not the publisher's. */
+.news__translated {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin-left: 8px;
+  vertical-align: 2px;
+}

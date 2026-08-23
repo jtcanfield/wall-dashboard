@@ -1,7 +1,7 @@
 import type { CacheEntry, NewsItem } from '@shared/types';
 import { EXPECTED_INTERVAL_MS } from '@shared/types';
 import { Stale } from '../components/stale';
-import { shortAgo } from '../time';
+import { newsStamp } from '../time';
 
 interface Props {
   entry: CacheEntry<NewsItem[]>;
@@ -26,10 +26,14 @@ export function NewsPanel({ entry }: Props) {
           items.map((item) => (
             <article class="news__item" key={item.id}>
               {/* Headline, source and time only — no article bodies. */}
-              <span class="news__title">{item.title}</span>
+              <span class="news__title">
+                {item.title}
+                {/* Machine translated; the marker keeps that honest. */}
+                {item.titleOriginal && <i class="news__translated" title={item.titleOriginal}>RU</i>}
+              </span>
               <span class="news__meta">
                 {item.source}
-                {item.publishedAt ? ` · ${shortAgo(item.publishedAt)}` : ''}
+                <span class="news__time">{newsStamp(item.publishedAt)}</span>
               </span>
             </article>
           ))

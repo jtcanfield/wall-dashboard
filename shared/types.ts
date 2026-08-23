@@ -79,11 +79,22 @@ export interface FxData {
 
 export interface NewsItem {
   id: string;
+  /** Display title. For a translated item this is the English text. */
   title: string;
+  /**
+   * The untranslated headline, present only when `title` was machine
+   * translated. Keeping it makes the translation auditable and lets the panel
+   * fall back without another round trip.
+   */
+  titleOriginal?: string | null;
   link: string;
   source: string;
-  /** ISO 8601 with offset. The client renders this as a relative timestamp. */
-  publishedAt: string | null;
+  /**
+   * ISO 8601 with offset. Never null: an item without a publish date is
+   * dropped upstream, because undated entries are overwhelmingly evergreen
+   * commerce filler rather than news.
+   */
+  publishedAt: string;
 }
 
 /* ------------------------------------------------------------------- twitch */

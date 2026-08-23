@@ -15,3 +15,16 @@ export function shortAgo(iso: string): string {
   if (hours < 48) return `${hours}h`;
   return `${Math.round(diff.as('days'))}d`;
 }
+
+/**
+ * Absolute publish time for a headline. Everything in the panel is inside the
+ * 24-hour cutoff, so the weekday prefix only ever appears for late-yesterday
+ * items — it disambiguates "9:40 PM" without spending width on a full date.
+ */
+export function newsStamp(iso: string): string {
+  const at = DateTime.fromISO(iso);
+  if (!at.isValid) return '';
+  return at.hasSame(DateTime.now(), 'day')
+    ? at.toFormat('h:mm a')
+    : at.toFormat('ccc h:mm a');
+}
