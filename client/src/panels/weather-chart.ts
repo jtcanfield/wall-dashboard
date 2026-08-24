@@ -42,6 +42,75 @@ export function buildSeries(hourly: WeatherHour[]): WeatherSeries {
 }
 
 /**
+ * A small readout pinned to a commute marker: the temperature and rain chance
+ * at that hour.
+ *
+ * The chart answers "what is the shape of the day"; this answers "so what is it
+ * actually going to be when I walk out of the door", which is the only reason
+ * those two lines are drawn at all. Values are read from the nearest sample
+ * rather than interpolated — these are hourly forecasts, and inventing a
+ * between-hours precision they do not have would be false confidence.
+ */
+function drawReadout(u: uPlot, x: number, at: number): void {
+    const xs = u.data[0];
+    if (!xs || xs.length === 0) {
+        return;
+    }
+
+    let nearest = 0;
+    for (let i = 1; i < xs.length; i++) {
+        if (Math.abs(xs[i]! - at) < Math.abs(xs[nearest]! - at)) {
+            nearest = i;
+        }
+    }
+    // More than half an hour from any sample means the marker sits in a gap.
+    if (Math.abs(xs[nearest]! - at) > 1_800) {
+        return;
+    }
+
+    const temp = u.data[2]?.[nearest];
+    const rain = u.data[1]?.[nearest];
+    if (temp === null || temp === undefined) {
+        return;
+    }
+
+    const label = `${Math.round(temp)}°`;
+    const sub = rain === null || rain === undefined ? "" : `${Math.round(rain)}%`;
+
+    const ctx = u.ctx;
+    ctx.save();
+    ctx.font = '600 15px "Noto Sans", sans-serif';
+    const padX = 8;
+    const gap = sub ? 8 : 0;
+    const width = ctx.measureText(label).width + (sub ? ctx.measureText(sub).width : 0) + gap;
+    const boxW = width + padX * 2;
+    const boxH = 24;
+
+    // Keep the box inside the plot when a marker lands near the right edge.
+    const right = u.bbox.left + u.bbox.width;
+    const boxX = Math.min(x + 6, right - boxW - 2);
+    const boxY = u.bbox.top + 24;
+
+    ctx.fillStyle = alpha(css("--bg"), 0.9);
+    ctx.strokeStyle = css("--border");
+    ctx.lineWidth = 1;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.roundRect(boxX, boxY, boxW, boxH, 5);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = css("--temp");
+    ctx.fillText(label, boxX + padX, boxY + boxH / 2);
+    if (sub) {
+        ctx.fillStyle = alpha(css("--accent"), 0.95);
+        ctx.fillText(sub, boxX + padX + ctx.measureText(label).width + gap, boxY + boxH / 2);
+    }
+    ctx.restore();
+}
+
+/**
  * Draws the luften bands and the 08:00/15:00 commute markers.
  *
  * Bands go in `drawClear` so they sit behind the series; the commute lines go
@@ -115,6 +184,7 @@ function markersPlugin(
                         ctx.lineTo(x, u.bbox.top + u.bbox.height);
                         ctx.stroke();
                         ctx.fillText(`${hour}:00`, x + 6, u.bbox.top + 16);
+                        drawReadout(u, x, at);
                     }
                     day = day.plus({ days: 1 });
                 }
