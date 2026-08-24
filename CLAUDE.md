@@ -299,9 +299,14 @@ and still travels in the state payload — nothing draws it.
 
 **Kiosk runtime:**
 ```
-chromium --kiosk --noerrdialogs --disable-infobars --incognito http://localhost:3000
+chromium --kiosk --noerrdialogs --disable-infobars --incognito          --autoplay-policy=no-user-gesture-required http://localhost:3000
 unclutter -idle 0
 ```
+
+**`--autoplay-policy=no-user-gesture-required` is not optional** once the
+Twitch player is in. Chromium blocks autoplay without a user gesture even when
+the video is muted, and on a kiosk there is never going to be a gesture. The
+failure is silent: a black player box and nothing in the console.
 
 **Install `fonts-noto`** on the Wyse. Minimal Debian images lack Cyrillic coverage
 and Russian headlines will render as tofu boxes.
