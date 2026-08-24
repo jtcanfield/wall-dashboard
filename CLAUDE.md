@@ -718,6 +718,26 @@ Two further notes for whoever builds it:
 Decode is not a concern: Twitch delivers H.264 and the J5005's UHD 605 handles
 that in hardware.
 
+**Built 2026-08-24.** `canEmbed()` tests the host rather than assuming it — an
+IP address has no letters in it, which is the whole check. On a host Twitch
+will refuse, the panel falls back to the thumbnail card rather than showing a
+dead grey box across the room with an error message too small to read from the
+sofa. Probed with `parent=localhost` on the running dev page: the player
+document booted a nested frame and produced no CSP or frame-ancestors console
+error, so localhost is accepted.
+
+**Only the first live stream gets a player.** Two autoplaying 1080p streams is
+not a reasonable ask of a Pentium Silver, and two moving images in the corner
+of a room is not a reasonable ask of a person. Anyone else live is a one-line
+mention.
+
+**The player costs the news feed about six headlines.** The right column is
+928px; a 400x225 embed plus its chrome takes roughly 300 of them. Rather than
+couple news selection to Twitch state — which would mean a source reading
+another source — `.news` carries a bottom fade mask, so a clipped list reads as
+"there is more" instead of as a rendering fault. Every 100px of embed height is
+worth about two headlines if that trade ever needs revisiting.
+
 ---
 
 ## Feature specs

@@ -479,6 +479,11 @@ body {
     flex-direction: column;
     gap: 10px;
     overflow: hidden;
+    /* A live Twitch player takes ~300px off this column, which cuts the last
+       few headlines mid-line. The fade turns a hard clip into something that
+       reads as "there is more", which is true, rather than as a rendering
+       fault. Costs nothing when the list already fits. */
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent 100%);
 }
 
 .news__item {
@@ -514,9 +519,47 @@ body {
 
 .twitch__stream {
     display: grid;
-    grid-template-columns: 148px 1fr;
+    grid-template-columns: auto 1fr;
     gap: 14px;
     align-items: center;
+    min-width: 0;
+}
+
+.twitch__player {
+    position: relative;
+    flex: none;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #000;
+}
+
+.twitch__frame {
+    display: block;
+    border: 0;
+}
+
+/* Transparent, full-bleed, above the iframe: the only way the parent page can
+   see a click on an embedded player. Deliberately borderless and invisible —
+   there is no pointer on this display most of the time, so a visible control
+   would be furniture advertising an interaction nobody can perform. */
+.twitch__expand {
+    position: absolute;
+    inset: 0;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+}
+
+.twitch__also {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+}
+
+.twitch__also .twitch__name {
+    font-size: 16px;
 }
 
 .twitch__thumb {
