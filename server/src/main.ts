@@ -8,6 +8,7 @@ import { AppModule } from "./app.module";
 import { SERVER_ROOT } from "./paths";
 import { lanAddress } from "./net";
 import { TIMEZONE } from "./sources/stagger";
+import { findPortHolder } from "./port";
 
 /**
  * Two deployments, deliberately different shapes:
@@ -24,17 +25,21 @@ import { TIMEZONE } from "./sources/stagger";
 const isDev = process.env.NODE_ENV === "development";
 
 /**
- * `nest start --watch` spawns the replacement process before the outgoing one
- * has released the listening socket, and Windows sets SO_EXCLUSIVEADDRUSE so
- * the new bind is refused outright rather than shared. The old process is on
- * its way out, so the port frees within a few hundred milliseconds — retrying
- * is both the simplest fix and the one that needs no extra tooling.
+ * A short retry on EADDRINUSE, for the case where the outgoing process is on
+ * its way out and has not yet released the socket. Windows sets
+ * SO_EXCLUSIVEADDRUSE, so the new bind is refused outright rather than shared.
  *
- * Dev only. In production an occupied port means another dashboard is already
- * running, and failing loudly is correct.
+ * `scripts/dev.mjs` now waits for the old server to exit before starting the
+ * replacement, so this should never fire in the normal watch loop. It is kept
+ * for the case it was always the wrong fix for: an **orphan** holding the port
+ * that will never exit. That one used to end in a raw unhandled rejection; it
+ * now names the process instead — see the catch in bootstrap.
+ *
+ * Shorter than it was, because waiting ten seconds to be told the port is busy
+ * is worse than being told in two.
  */
 const BIND_RETRY_DELAY_MS = 250;
-const BIND_RETRY_ATTEMPTS = 40;
+const BIND_RETRY_ATTEMPTS = 8;
 
 const sleep = (ms: number): Promise<void> =>
     new Promise((resolve) => {
@@ -109,7 +114,27 @@ async function bootstrap(): Promise<void> {
     }
 
     const port = Number(process.env.PORT ?? 3000);
-    await listenWithRetry(app, port, log);
+    try {
+        await listenWithRetry(app, port, log);
+    } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== "EADDRINUSE") {
+            throw err;
+        }
+        // The retry is exhausted, so whoever holds the port is not leaving.
+        // A stack trace here says nothing useful; the PID does.
+        const holder = await findPortHolder(port);
+        log.error(
+            holder
+                ? `Port ${port} is held by ${holder.name} (pid ${holder.pid}) and it is not exiting. ` +
+                      `Stop it with: ${
+                          process.platform === "win32"
+                              ? `taskkill /pid ${holder.pid} /T /F`
+                              : `kill ${holder.pid}`
+                      }`
+                : `Port ${port} is in use and the holder could not be identified.`,
+        );
+        process.exit(1);
+    }
 
     const lan = lanAddress();
     log.log(`API listening on 0.0.0.0:${port} (TZ=${process.env.TZ})`);
