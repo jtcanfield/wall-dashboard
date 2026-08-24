@@ -64,7 +64,7 @@ function luftenFace(luften: LuftenState | null): Face | null {
             body: (
                 <span class="topbar__item topbar__item--quiet" style={flapDelay(0)}>
                     <i class="topbar__dot topbar__dot--none" />
-                    No airing window today
+                    No lüften today
                 </span>
             ),
         };
