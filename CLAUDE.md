@@ -248,6 +248,20 @@ addEventListener('resize', fit); fit();
   glance-first slot and neither fills it, so they take turns; a face with
   nothing to say drops out of the rotation, and a single remaining face holds
   rather than flipping against itself. Honours `prefers-reduced-motion`.
+  The transition is a **split-flap**, like an old airport board: each item
+  hinges at its top edge (`transform-origin: 50% 0%`), drops in from
+  `rotateX(-90deg)` with a fade, overshoots ~12° and settles. The small
+  overshoot is what reads as mechanical rather than as a plain fade. Items
+  stagger left to right at 90ms each via a `--flap-index` custom property, so a
+  multi-item face lands like a row of flaps rather than one card.
+
+  Two things that will look broken if changed carelessly: the animation lives
+  on `.topbar__item`, not on `.topbar__face`, and the `perspective` therefore
+  has to sit on `.topbar__face` — its direct parent. Perspective on `.topbar`,
+  two levels up, does not apply, and the flap renders as a flat vertical
+  squash. Keep it short: this fires every nine seconds all day, and anything
+  longer becomes the thing you look at.
+
   A 5px strip down the **left edge** fills over the rotation interval so the
   flip is telegraphed rather than sudden. Its duration is set inline from
   `ROTATE_MS`, and it is keyed by the rotation index so it restarts in step
@@ -325,9 +339,26 @@ polled every **15 minutes**.
 - Use the **direct USD-based symbols** (`USDEUR=X`, not `EURUSD=X`). All three
   exist. Inverting would need `1/x` and would quietly lose precision across the
   whole chart history.
-- `interval=1d&range=1mo` gives the month of daily closes for the sparkline
-  **and** the live price, because `meta.regularMarketPrice` is present
-  regardless of candle interval. One request per pair covers both.
+- **`interval=1h&range=1mo`** — a month of hourly candles. Measured for
+  `USDEUR=X` on 2026-08-23: 1h yields 506 points over 31 days, 30m yields 1010,
+  1d only 22. The sparkline is ~347px wide, so hourly is already slightly
+  oversampled and finer granularity would only cost payload.
+- One request per pair covers history *and* the live rate, because
+  `meta.regularMarketPrice` is present regardless of candle interval.
+- **`FxPoint` is `{ t, rate }` where `t` is epoch seconds**, not a date string.
+  Hourly data makes `YYYY-MM-DD` useless as a key, and seconds is what uPlot's
+  time scale wants, so the client passes it through untouched.
+- Candles with a `null` close are market closures, and are dropped rather than
+  zeroed. That is what leaves the weekend as a real gap — expect a ~50h one
+  every week, held flat by the stepped path, never drawn as a diagonal.
+- Rates are rounded to **six significant figures**. Yahoo stores them as 32-bit
+  floats, so a rate that is really `0.8665` arrives as `0.8665000200271606`.
+
+**The payload cost is real and was accepted deliberately.** Hourly across three
+pairs is ~40KB of the ~61KB SSE frame, and the whole DashboardState is pushed
+on every update. On localhost and a home LAN that is nothing; it would not be
+on a metered link. If it ever needs trimming, drop to `90m` (338 points, almost
+exactly one per pixel) before touching the window length.
 - `FxSeries.asOf` carries the market timestamp — not our fetch time. The panel
   shows it as "live 7:46 PM". Daily sources leave it null.
 - Requires a browser-ish `User-Agent` or it 404s.
@@ -497,6 +528,18 @@ expiry. Thumbnail URLs contain `{width}`/`{height}` placeholders to substitute.
 ### Commute markers
 
 Vertical lines on the weather chart at **08:00** and **15:00** local time.
+
+Each carries a small **readout box** with the temperature and rain chance at
+that hour. The chart answers "what is the shape of the day"; the readout
+answers "so what is it actually going to be when I walk out of the door", which
+is the only reason those two lines exist.
+
+Values come from the **nearest hourly sample, never interpolated**. These are
+hourly forecasts; inventing a between-hours precision they do not have would be
+false confidence. If the closest sample is more than 30 minutes away the marker
+sits in a gap and the box is skipped rather than guessed. The box also clamps
+to the plot's right edge so a marker near the end of the window doesn't push it
+off-canvas.
 
 ### Luften (window airing)
 
