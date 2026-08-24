@@ -1,5 +1,5 @@
 import type { CacheEntry, NewsItem } from "@shared/types";
-import { EXPECTED_INTERVAL_MS } from "@shared/types";
+import { EXPECTED_INTERVAL_MS, NEWS_VISIBLE } from "@shared/types";
 import { Stale } from "../components/stale";
 import { newsStamp } from "../time";
 
@@ -8,14 +8,12 @@ interface Props {
 }
 
 /**
- * What fits in the right column without the last item being clipped.
- *
- * Raised from 9 when the feed set grew from four sources to thirteen: at nine
- * slots the extra sources changed which nine headlines appeared but not how
- * much was on screen, which is not what more sources were for. Sized against
- * the worst case of every headline wrapping to two lines.
+ * The slot count lives in shared/types.ts because the server selects against
+ * it — it balances which sources are represented in exactly this many slots,
+ * and slicing a longer list here would discard that balance. The number itself
+ * is what fits the right column with every headline wrapped to two lines.
  */
-const VISIBLE = 16;
+const VISIBLE = NEWS_VISIBLE;
 
 export function NewsPanel({ entry }: Props) {
     const items = (entry.data ?? []).slice(0, VISIBLE);

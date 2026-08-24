@@ -3,8 +3,8 @@ import { Interval } from "@nestjs/schedule";
 import { DateTime } from "luxon";
 import Parser from "rss-parser";
 import { CacheService } from "../../cache/cache.service";
-import { NewsItem } from "../../shared";
-import { FEEDS, FeedSource, MAX_AGE_HOURS, MAX_ITEMS, MAX_PER_SOURCE } from "./feeds";
+import { NEWS_VISIBLE, NewsItem } from "../../shared";
+import { FEEDS, FeedSource, MAX_AGE_HOURS, MAX_PER_SOURCE, REGION_MINIMUMS, Region } from "./feeds";
 import { RejectionReason, rejectionReason } from "./filter";
 import { TranslateService } from "./translate.service";
 import { stagger } from "../stagger";
@@ -54,11 +54,7 @@ export class NewsService implements OnModuleInit {
             throw new Error(`all ${failures} feeds produced nothing`);
         }
 
-        // Newest first, across all sources. Compared as instants rather than as
-        // ISO strings: two feeds can legitimately report the same moment with
-        // different UTC offsets, and a lexical compare would then order them by
-        // the offset instead of by the time.
-        return items.sort((a, b) => publishedMillis(b) - publishedMillis(a)).slice(0, MAX_ITEMS);
+        return selectVisible(items, NEWS_VISIBLE);
     }
 
     private async fetchFeed(feed: FeedSource): Promise<NewsItem[]> {
@@ -142,6 +138,56 @@ export class NewsService implements OnModuleInit {
                 : item;
         });
     }
+}
+
+/** Source label -> region, built once from the feed table. */
+const REGION_BY_SOURCE = new Map<string, Region>(FEEDS.map((f) => [f.label, f.region]));
+
+/**
+ * Picks the headlines the panel will show.
+ *
+ * Two passes, and the split between them is the whole point:
+ *
+ * 1. **Membership** — each region takes its own newest items up to its floor in
+ *    REGION_MINIMUMS, so a low-volume source cannot be crowded out entirely by
+ *    thirteen feeds competing for sixteen slots. The remaining slots go to
+ *    whatever is newest, regardless of region.
+ * 2. **Order** — the chosen set is then rendered strictly newest-first.
+ *
+ * So a reserved 17-hour-old headline from Новая appears near the bottom of the
+ * panel, never at the top. Position still means "how recent". This is what
+ * separates it from the round-robin interleave that was tried and deliberately
+ * reverted: nothing here lets a source jump the queue.
+ */
+export function selectVisible(items: NewsItem[], limit: number): NewsItem[] {
+    // Compared as instants rather than as ISO strings: two feeds can
+    // legitimately report the same moment with different UTC offsets, and a
+    // lexical compare would then order them by the offset, not by the time.
+    const byRecency = [...items].sort((a, b) => publishedMillis(b) - publishedMillis(a));
+    const chosen = new Set<NewsItem>();
+
+    for (const [region, floor] of Object.entries(REGION_MINIMUMS) as [Region, number][]) {
+        let taken = 0;
+        for (const item of byRecency) {
+            if (taken >= floor || chosen.size >= limit) {
+                break;
+            }
+            if (chosen.has(item) || REGION_BY_SOURCE.get(item.source) !== region) {
+                continue;
+            }
+            chosen.add(item);
+            taken++;
+        }
+    }
+
+    for (const item of byRecency) {
+        if (chosen.size >= limit) {
+            break;
+        }
+        chosen.add(item);
+    }
+
+    return byRecency.filter((item) => chosen.has(item));
 }
 
 /**

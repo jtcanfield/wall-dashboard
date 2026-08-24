@@ -89,6 +89,16 @@ export interface FxData {
 
 /* --------------------------------------------------------------------- news */
 
+/**
+ * How many headlines the panel shows.
+ *
+ * Shared because the *server* does the selecting: balancing which sources are
+ * represented is only meaningful against the set that actually gets displayed,
+ * so the server has to know the slot count. Sending 40 and letting the client
+ * take the top 16 would throw the balance away in the slice.
+ */
+export const NEWS_VISIBLE = 16;
+
 export interface NewsItem {
     id: string;
     /** Display title. For a translated item this is the English text. */

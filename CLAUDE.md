@@ -516,12 +516,35 @@ time (`3:34 PM`), with a weekday prefix for anything not from today.
 newest thing that has happened, full stop.
 
 A round-robin interleave was tried and **deliberately reverted** — don't
-reintroduce it without asking. The motivation was real: BBC World publishes
-several times an hour and takes roughly six of the nine visible slots under a
-flat sort, which can leave Новая — the source with an entire translation
-pipeline behind it — off screen. That was judged the lesser problem. On a wall
-display, an item's position should mean "how recent", not "whose turn it is".
-`MAX_PER_SOURCE` capping the pool is the only balancing left.
+reintroduce it without asking. On a wall display, an item's position should
+mean "how recent", not "whose turn it is".
+
+**Regional floors, added when the set reached thirteen sources.** The problem
+the interleave was trying to solve got worse: measured on a Sunday night, the
+sixteen visible slots held eight sources and *no* Russian one, because Новая's
+newest item was 17.8h old and Meduza's 8.7h against a wall of fresher US and EU
+headlines. The source with an entire translation pipeline behind it would
+essentially never appear.
+
+`REGION_MINIMUMS` guarantees EU three slots and Russia two. The critical
+property, and the reason this is not the reverted interleave under a new name:
+
+> **The floors decide membership. They never decide order.**
+
+`selectVisible()` reserves in one pass and then renders the chosen set strictly
+newest-first, so a reserved 17-hour-old Новая headline lands at the *bottom* of
+the panel. Nothing jumps the queue; the top line is still the newest thing that
+has happened. There are tests for both halves.
+
+US gets a floor of zero — it dominates on recency anyway, so reserving for it
+would change nothing. The floors must sum to well under `NEWS_VISIBLE` or they
+become the whole panel.
+
+`NEWS_VISIBLE` lives in `shared/types.ts` because **the server does the
+selecting**. Balancing representation is only meaningful against the set that
+is actually displayed; sending 40 items and letting the client slice to 16
+would throw the balance away in the slice. `MAX_PER_SOURCE` still caps the pool
+each feed contributes before any of this runs.
 
 Compare instants, not ISO strings. Two feeds can report the same moment with
 different UTC offsets, and a lexical compare then sorts by the offset.

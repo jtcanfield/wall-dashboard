@@ -1,4 +1,5 @@
 import { isNews, rejectionReason } from "./filter";
+import { selectVisible } from "./news.service";
 
 const item = (
     title: string,
@@ -72,5 +73,59 @@ describe("news filler filter", () => {
         expect(isNews(item("Trump announces new tariffs on Chinese goods"))).toBe(true);
         expect(isNews(item("Supreme Court to hear case on food stamp benefits"))).toBe(true);
         expect(isNews(item("Best-selling author testifies before House committee"))).toBe(true);
+    });
+});
+
+const headline = (source: string, minutesAgo: number) => ({
+    id: `${source}-${minutesAgo}`,
+    title: `${source} headline ${minutesAgo}`,
+    link: `https://example.com/${source}/${minutesAgo}`,
+    source,
+    publishedAt: new Date(Date.UTC(2026, 7, 24, 12, 0, 0) - minutesAgo * 60_000).toISOString(),
+});
+
+describe("visible-headline selection", () => {
+    // Sixteen fresh US items, then much older EU and Russian ones — the exact
+    // shape that pushed Новая off the panel once the feed set reached thirteen.
+    const crowded = [
+        ...Array.from({ length: 16 }, (_, i) => headline("NPR", i)),
+        headline("DW", 400),
+        headline("Euronews", 420),
+        headline("France 24", 440),
+        headline("Meduza", 900),
+        headline("Новая", 1_100),
+    ];
+
+    it("guarantees each region its floor even when outranked on recency", () => {
+        const picked = selectVisible(crowded, 16);
+        const sources = picked.map((i) => i.source);
+
+        expect(picked).toHaveLength(16);
+        expect(sources.filter((s) => ["Meduza", "Новая"].includes(s))).toHaveLength(2);
+        expect(sources.filter((s) => ["DW", "Euronews", "France 24"].includes(s))).toHaveLength(3);
+    });
+
+    it("still renders strictly newest-first, so a reserved item sinks", () => {
+        const picked = selectVisible(crowded, 16);
+        const times = picked.map((i) => Date.parse(i.publishedAt));
+
+        expect([...times].sort((a, b) => b - a)).toEqual(times);
+        // The floors decide membership, never position: the oldest reserved
+        // item lands at the bottom rather than jumping the queue.
+        expect(picked[picked.length - 1]!.source).toBe("Новая");
+        expect(picked[0]!.source).toBe("NPR");
+    });
+
+    it("does not pad a region past its floor when nothing else competes", () => {
+        const quiet = [headline("NPR", 1), headline("Meduza", 2), headline("Новая", 3)];
+        expect(selectVisible(quiet, 16).map((i) => i.source)).toEqual(["NPR", "Meduza", "Новая"]);
+    });
+
+    it("compares instants, not ISO strings, across differing UTC offsets", () => {
+        // Same moment, two offsets. A lexical compare orders these by the
+        // offset rather than by the time.
+        const east = { ...headline("BBC", 0), publishedAt: "2026-08-24T15:00:00+03:00" };
+        const west = { ...headline("NPR", 0), publishedAt: "2026-08-24T13:00:00+00:00" };
+        expect(selectVisible([east, west], 16).map((i) => i.source)).toEqual(["NPR", "BBC"]);
     });
 });
