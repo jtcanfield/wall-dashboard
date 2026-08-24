@@ -412,19 +412,58 @@ so the age cutoff dropped them — while the `cnn-underscored` commerce pages ar
 nothing but "50+ products to make your life easier" and Mother's Day gift
 guides. An age filter alone inverts into a filler filter when a feed dies.
 
-Current sources, all verified fresh and 100% dated:
+**Thirteen sources**, weighted US-first then EU then Russia. All verified
+through `rss-parser` itself on 2026-08-24 — not by curl — and every one
+returned items with 100% of them dated:
 
 | Source | Feed | Scope |
 |---|---|---|
 | NPR | `feeds.npr.org/1014/rss.xml` | US politics |
 | PBS | `pbs.org/newshour/feeds/rss/politics` | US politics |
+| NYT | `rss.nytimes.com/services/xml/rss/nyt/Politics.xml` | US politics |
+| The Hill | `thehill.com/rss/syndicator/19110` | US congress |
+| Guardian | `theguardian.com/us-news/us-politics/rss` | US politics |
 | BBC | `feeds.bbci.co.uk/news/world/rss.xml` | Global |
+| DW | `rss.dw.com/xml/rss-en-eu` | EU |
+| France 24 | `france24.com/en/rss` | EU / global |
+| Euronews | `euronews.com/rss?level=theme&name=news` | EU |
+| Al Jazeera | `aljazeera.com/xml/rss/all.xml` | Global |
 | Новая | `novayagazeta.ru/feed/rss` | Russia, translated |
+| Meduza | `meduza.io/rss/all` | Russia, translated |
+| Moscow Times | `themoscowtimes.com/rss/news` | Russia, English |
+
+**Also measured dead — do not retry without re-checking.** AP's
+`apnews.com/index.rss` returns **401**, `feeds.reuters.com` no longer
+resolves at all, Euractiv **403s** any non-browser client, and Politico's
+`politics-news.xml` was ~40 hours stale on a Sunday night.
+
+**Meduza's English edition is the stale one.** `meduza.io/rss/en/all` was three
+days behind while `meduza.io/rss/all` was current to the hour. This is the
+reverse of the obvious assumption, and it is why Meduza goes through the
+translation pipeline rather than being taken in English.
+
+**Euronews serves gzip unconditionally.** `rss-parser` decompresses it fine,
+but a hand-check with curl and no `--compressed` returns a body of null bytes
+and counts zero items — the feed looks dead when probed and is perfectly
+healthy in the app. Probe through the parser, not through curl.
 
 Each feed carries candidate URLs tried in order and the server remembers which
 one worked. `maxAgeHours` is per-feed: Новая gets 48h because it published
 exactly one item inside 24h on a Sunday, and a source that silently vanishes
 reads as a bug.
+
+**`MAX_PER_SOURCE` has to scale down as sources are added** — it went 8 → 3
+when the set went 4 → 13. Under a strict newest-first sort it is the *only*
+balancing mechanism in the system, and at 8 the two highest-volume feeds (DW
+pulls 130 items, Guardian 45) take the whole panel between them.
+
+The panel shows **16 headlines**, not 9. Adding nine sources while holding the
+slot count would have changed *which* headlines appeared without changing how
+much was on screen, which is not what the sources were for. `VISIBLE` in
+`news-panel.tsx` and the `.news` type scale in `styles.css` are sized together
+against the worst case of every headline wrapping to two lines; raising one
+without shrinking the other clips the last item. A scrolling feed was
+considered and deferred — try the denser static list first.
 
 ### Filler filtering — `sources/news/filter.ts`
 
@@ -460,6 +499,12 @@ LibreTranslate public instance tried returned 500 or a Cloudflare challenge.
   shown.
 - 5,000 chars/day anonymous, 50,000 with a contact address in `MYMEMORY_EMAIL`.
   Opt-in only — that address is sent with every request.
+- **There are two Russian sources now, not one.** Новая plus Meduza roughly
+  doubles the translated volume, which puts the anonymous 5,000-char tier
+  within reach of a busy news day. The forever-cache is what keeps it viable —
+  only genuinely new headlines cost anything. Set `MYMEMORY_EMAIL` if the
+  panel starts showing untranslated Cyrillic in the evenings; that is the
+  fail-open path reporting quota exhaustion, working as designed.
 - The client marks translated headlines with a small `RU` badge and keeps the
   original in `titleOriginal`. Machine translation should be visible as such.
 
@@ -480,6 +525,62 @@ display, an item's position should mean "how recent", not "whose turn it is".
 
 Compare instants, not ISO strings. Two feeds can report the same moment with
 different UTC offsets, and a lexical compare then sorts by the offset.
+
+### Breaking news alerts — NWS civil emergencies + cross-source velocity
+
+The red-bar case: something is happening *now* and the panel should say so
+above everything else.
+
+**There is no free real-time breaking-news push API.** This was researched
+properly on 2026-08-24 and the answer is genuinely no. Every aggregator that
+markets itself that way — NewsData, Currents, Mediastack, TheNewsAPI,
+NewsAPI.org — is key-gated and quota-capped at 100–600 requests/day, which a
+60-second poll exhausts before lunch. NewsAPI.org's free tier additionally
+delays articles 24 hours, the exact inverse of the requirement.
+
+Two plausible-looking options were tested and **rejected on measurement**:
+
+- **GDELT DOC 2.0** (free, no key, 15-minute updates) returned **HTTP 429 on
+  three attempts spread over several minutes** from a residential IP, with a
+  notice asking for one request per five seconds. Its rate limiting appears to
+  be shared-pool. Not something to hang an alert path on.
+- **Google News RSS `when:1h`** works, but `when:` is a *filter* and not a
+  query — `q=when:1h` alone returns an empty feed, so it needs a keyword. And
+  searching `breaking` matches the word, not the event class. Live results at
+  the time of testing: an MLB playoff bracket, a Santa Clara county fire, an
+  Arlington apartment blaze. Useless as a trigger.
+
+So the trigger is two local signals rather than one remote one:
+
+**1. NWS alerts — `api.weather.gov/alerts/active`.** Free, no key, and already
+this project's weather fallback. It carries **111 event types, 13 of them
+civil emergencies rather than weather**, sourced from IPAWS:
+
+> Civil Danger Warning · Shelter In Place Warning · Law Enforcement Warning ·
+> Evacuation Immediate · Child Abduction Emergency · Local Area Emergency ·
+> Hazardous Materials Warning · 911 Telephone Outage · Nuclear Power Plant
+> Warning · Radiological Hazard Warning · Fire Warning · Civil Emergency
+> Message · Administrative Message
+
+That is exactly the "active shooting → shelter in place" category, from the
+authoritative source. Severe weather rides the same poll: gate on
+`severity` ∈ {Extreme, Severe} rather than maintaining a hand-written list of
+weather event names, so a Tornado Warning qualifies and a Special Weather
+Statement (Moderate) does not.
+
+- Filter by zone, not state. `?zone=NCZ041` is Wake County and the API confirms
+  it in the response title; `?area=NC` returns Hatteras Island fishing
+  advisories.
+- **`/alerts/stream` is a 404 — the old SSE endpoint is gone.** This polls.
+
+**2. Cross-source velocity over the feeds already polled.** When several of the
+thirteen sources publish overlapping headlines inside a short window, that is a
+breaking event. No new dependency, no key, no quota, and it gets *better* as
+sources are added rather than more expensive.
+
+A test event in JSON, toggled by an env var, drives the **same code path** as a
+real alert. It is not a separate render path — otherwise the thing that only
+ever runs during a real emergency is the thing that was never exercised.
 
 ### Collection schedule — ReCollect
 
@@ -520,6 +621,42 @@ GET /helix/streams?user_login=a&user_login=b   (up to 100 logins per call)
 Offline streamers are simply absent from the response array — that's the offline
 signal. Token lasts ~60 days; catch a 401 and re-fetch rather than tracking
 expiry. Thumbnail URLs contain `{width}`/`{height}` placeholders to substitute.
+
+#### Embedded player — production only, by measurement
+
+The panel is to autoplay the stream muted when someone is live, and expand to
+fullscreen on a click. Researched 2026-08-24.
+
+`player.twitch.tv/?channel=<x>&parent=<host>&autoplay=true&muted=true`, and
+Chromium needs `--autoplay-policy=no-user-gesture-required` in the kiosk flags
+or the muted autoplay is still blocked.
+
+**The `parent` parameter is the constraint that decides where this can run.**
+Twitch rejects raw IP addresses outright, and the docs state plainly that
+"domains that use Twitch embeds must use SSL certificates".
+
+| | `parent` | Works? |
+|---|---|---|
+| Production (Wyse kiosk → `http://localhost:3000`) | `localhost` | Yes — localhost is a browser secure context |
+| LAN dev rig (laptop → `http://192.168.1.225:5173`) | *(an IP)* | **No** — fails the IP rule and the SSL rule at once |
+
+**Decided: build it prod-only.** Verification happens on the Wyse itself. The
+panel degrades to the existing thumbnail card wherever the embed is refused, so
+the LAN dev rig stays usable — the video simply doesn't appear there. Making it
+work in dev would mean a hosts-file entry on the laptop plus a self-signed cert
+for Vite, which is a lot of moving parts for a preview.
+
+Two further notes for whoever builds it:
+
+- **The JS embed API has no fullscreen method.** Set `allowfullscreen` on the
+  iframe and call `requestFullscreen()` on the element yourself.
+- **An iframe swallows clicks**, so click-to-fullscreen needs a transparent
+  overlay div above the player. That collides with `cursor: none` and
+  `unclutter -idle 0`, and with open decision 6 — no input device is chosen
+  yet, so nothing can click this today.
+
+Decode is not a concern: Twitch delivers H.264 and the J5005's UHD 605 handles
+that in hardware.
 
 ---
 
