@@ -103,10 +103,20 @@ function launch(name, args, cwd, onLine) {
     children.add(child);
     child.on("exit", (code, signal) => {
         children.delete(child);
-        if (!shuttingDown && name !== "server") {
-            log(name, `exited (${signal ?? code}) — shutting down`);
-            void shutdown(1);
+        if (shuttingDown) {
+            return;
         }
+        if (name === "server") {
+            // Expected during a restart, which is why it is not fatal. But a
+            // server that dies on its own otherwise says nothing at all, and
+            // the page just stops updating — say so instead.
+            if (!restarting) {
+                log("server", `exited on its own (${signal ?? code}) — save a file to restart it`);
+            }
+            return;
+        }
+        log(name, `exited (${signal ?? code}) — shutting down`);
+        void shutdown(1);
     });
     return child;
 }
