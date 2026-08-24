@@ -7,8 +7,15 @@ interface Props {
     entry: CacheEntry<NewsItem[]>;
 }
 
-/** What fits in the right column without the last item being clipped. */
-const VISIBLE = 9;
+/**
+ * What fits in the right column without the last item being clipped.
+ *
+ * Raised from 9 when the feed set grew from four sources to thirteen: at nine
+ * slots the extra sources changed which nine headlines appeared but not how
+ * much was on screen, which is not what more sources were for. Sized against
+ * the worst case of every headline wrapping to two lines.
+ */
+const VISIBLE = 16;
 
 export function NewsPanel({ entry }: Props) {
     const items = (entry.data ?? []).slice(0, VISIBLE);
