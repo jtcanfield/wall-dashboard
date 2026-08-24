@@ -206,6 +206,11 @@ interface CacheEntry<T> {
 - Show a subtle age indicator when an entry is older than its expected interval.
 - Snapshot the whole cache to `cache.json` on write; restore on boot so a restart
   repaints instantly instead of showing six empty panels for 90 seconds.
+- **`breaking` is the one field excluded from the snapshot.** Stale-but-present
+  is the right trade for exchange rates; it is the wrong one for an emergency.
+  Restoring an alert whose warning expired hours ago paints a false
+  shelter-in-place order across the wall until `AlertsService` recomputes. It
+  is derived state and costs nothing to rebuild, so it starts null.
 
 A panel silently showing yesterday's exchange rates is far better than one that
 blanks because an upstream had a bad minute.

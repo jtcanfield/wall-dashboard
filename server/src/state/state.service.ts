@@ -95,7 +95,15 @@ export class StateService implements OnModuleInit {
     private async persist(state: DashboardState): Promise<void> {
         try {
             await fs.mkdir(path.dirname(SNAPSHOT_PATH), { recursive: true });
-            await fs.writeFile(SNAPSHOT_PATH, JSON.stringify(state), "utf8");
+            // `breaking` is deliberately not snapshotted. The snapshot exists so
+            // a restart repaints instantly rather than showing empty panels, and
+            // for cached weather or exchange rates stale-but-present is the right
+            // trade. An emergency bar is the opposite: restoring one whose alert
+            // expired hours ago paints a false shelter-in-place order across the
+            // wall for however long it takes AlertsService to recompute. It is
+            // derived state and costs nothing to rebuild, so it starts null.
+            const snapshot: DashboardState = { ...state, breaking: null };
+            await fs.writeFile(SNAPSHOT_PATH, JSON.stringify(snapshot), "utf8");
         } catch (err) {
             this.log.warn(`Could not write snapshot: ${String(err)}`);
         }
