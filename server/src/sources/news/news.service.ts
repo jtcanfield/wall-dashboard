@@ -3,7 +3,7 @@ import { Interval } from "@nestjs/schedule";
 import { DateTime } from "luxon";
 import Parser from "rss-parser";
 import { CacheService } from "../../cache/cache.service";
-import { NEWS_VISIBLE, NewsItem } from "../../shared";
+import { NEWS_COUNT, NewsItem } from "../../shared";
 import { FEEDS, FeedSource, MAX_AGE_HOURS, MAX_PER_SOURCE, REGION_MINIMUMS, Region } from "./feeds";
 import { RejectionReason, rejectionReason } from "./filter";
 import { TranslateService } from "./translate.service";
@@ -54,7 +54,7 @@ export class NewsService implements OnModuleInit {
             throw new Error(`all ${failures} feeds produced nothing`);
         }
 
-        return selectVisible(items, NEWS_VISIBLE);
+        return selectVisible(items, NEWS_COUNT);
     }
 
     private async fetchFeed(feed: FeedSource): Promise<NewsItem[]> {

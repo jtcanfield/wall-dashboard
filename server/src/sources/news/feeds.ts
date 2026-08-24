@@ -169,16 +169,21 @@ export const MAX_AGE_HOURS = 24;
  */
 export const REGION_MINIMUMS: Record<Region, number> = {
     us: 0,
-    eu: 3,
-    ru: 2,
+    eu: 6,
+    ru: 4,
 };
 /**
  * Per-source cap applied before merging, so one high-volume feed cannot crowd
  * out the others.
  *
- * Dropped from 8 to 3 when the set grew from four sources to thirteen. Under a
- * strict newest-first sort the cap is the *only* balancing mechanism there is,
- * so it has to scale down as sources are added or DW and the Guardian simply
- * take the whole panel between them.
+ * Dropped from 8 to 3 when the set grew from four sources to thirteen, then
+ * raised to 5 when the panel began scrolling through forty headlines instead
+ * of showing sixteen. The cap has to leave a pool bigger than NEWS_COUNT or
+ * the selection has nothing to choose between: thirteen sources at 3 apiece is
+ * 39 candidates for 40 slots, which is not a selection at all.
+ *
+ * Under a strict newest-first sort this is the only balancing mechanism there
+ * is besides the regional floors, so it wants to be as low as the slot count
+ * allows.
  */
-export const MAX_PER_SOURCE = 3;
+export const MAX_PER_SOURCE = 5;
