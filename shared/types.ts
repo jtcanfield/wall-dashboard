@@ -56,8 +56,15 @@ export interface WeatherData {
 export type Quote = "EUR" | "CNY" | "RUB";
 
 export interface FxPoint {
-    /** YYYY-MM-DD. Business days only — step the line, never diagonal across a weekend. */
-    date: string;
+    /**
+     * Epoch **seconds**, not a date string: the series is hourly, so a
+     * YYYY-MM-DD key can no longer identify a point. Seconds because that is
+     * what uPlot's time scale wants, so the client passes it straight through.
+     *
+     * FX closes from Friday evening to Sunday evening, so expect a two-day gap
+     * every week — step the line across it, never draw a diagonal.
+     */
+    t: number;
     rate: number;
 }
 

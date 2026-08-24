@@ -33,12 +33,12 @@ export async function fetchCbrRubPerUsd(from: DateTime, to: DateTime): Promise<F
         // CBR writes decimals with a comma.
         const rate = Number(value.replace(",", ".")) / Number(nominal);
         if (Number.isFinite(rate)) {
-            points.push({ date: `${yyyy}-${mm}-${dd}`, rate });
+            points.push({ t: DateTime.fromISO(`${yyyy}-${mm}-${dd}`).toSeconds(), rate });
         }
     }
 
     if (points.length === 0) {
         throw new Error("CBR returned no usable records");
     }
-    return points.sort((a, b) => a.date.localeCompare(b.date));
+    return points.sort((a, b) => a.t - b.t);
 }

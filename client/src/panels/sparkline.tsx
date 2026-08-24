@@ -22,7 +22,8 @@ export function Sparkline({ points, colorVar }: Props) {
     const chart = useRef<uPlot | null>(null);
 
     const data = useMemo<AlignedData>(
-        () => [points.map((p) => Date.parse(p.date) / 1000), points.map((p) => p.rate)],
+        // Already epoch seconds, which is exactly what uPlot time scales want.
+        () => [points.map((p) => p.t), points.map((p) => p.rate)],
         [points],
     );
 

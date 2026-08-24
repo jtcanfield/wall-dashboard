@@ -20,6 +20,28 @@ interface YahooChart {
 const BASE = "USD";
 
 /**
+ * Six significant figures.
+ *
+ * Yahoo stores these as 32-bit floats, so a rate that is really 0.8665 comes
+ * back as 0.8665000200271606. At 506 points across three pairs that noise is
+ * pure payload — and the whole DashboardState is pushed on every update, so
+ * it is paid for again on every frame. No FX quote needs more than this.
+ */
+const round = (n: number): number => Number(n.toPrecision(6));
+
+/**
+ * Hourly candles across the whole month.
+ *
+ * Measured 2026-08-23 for USDEUR=X: 1h/1mo yields 506 points over 31 days,
+ * 30m yields 1010, 1d only 22. The sparkline is ~347px wide, so hourly is
+ * already slightly oversampled and finer granularity would only cost payload.
+ * `meta.regularMarketPrice` is present regardless of interval, so this one
+ * request still carries the live rate as well.
+ */
+const INTERVAL = "1h";
+const RANGE = "1mo";
+
+/**
  * Yahoo Finance's chart endpoint, used for near-real-time rates.
  *
  * The daily-reference sources cannot answer "should I exchange money now?".
@@ -36,10 +58,11 @@ const BASE = "USD";
 export async function fetchYahooSeries(quote: Quote, windowDays: number): Promise<FxSeries> {
     // Direct USD-based pairs exist for all three quotes, so no inversion is
     // needed — USDEUR=X rather than EURUSD=X, which would need 1/x and would
-    // quietly lose precision in the chart history.
+    // quietly lose precision across the whole chart history.
     const symbol = `${BASE}${quote}=X`;
     const url =
-        `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}` + `?interval=1d&range=1mo`;
+        `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}` +
+        `?interval=${INTERVAL}&range=${RANGE}`;
 
     const res = await getJson<YahooChart>(url, {
         // The endpoint 404s unauthenticated-looking clients without a UA.
@@ -54,30 +77,26 @@ export async function fetchYahooSeries(quote: Quote, windowDays: number): Promis
     const timestamps = result.timestamp ?? [];
     const closes = result.indicators?.quote?.[0]?.close ?? [];
 
-    const cutoff = DateTime.now().minus({ days: windowDays }).startOf("day");
+    // Candles with a null close are market closures, not zero rates. Dropping
+    // them is what leaves the weekend as a genuine gap for the step to hold
+    // across, rather than a plunge to nothing.
+    const cutoff = DateTime.now().minus({ days: windowDays }).toSeconds();
     const points: FxPoint[] = [];
     for (let i = 0; i < timestamps.length; i++) {
         const close = closes[i];
         const at = timestamps[i];
-        if (close === null || close === undefined || at === undefined) {
+        if (close === null || close === undefined || at === undefined || at < cutoff) {
             continue;
         }
-        const day = DateTime.fromSeconds(at);
-        if (day < cutoff) {
-            continue;
-        }
-        points.push({ date: day.toFormat("yyyy-LL-dd"), rate: close });
+        points.push({ t: at, rate: round(close) });
     }
 
     if (points.length === 0) {
         throw new Error(`Yahoo returned no usable closes for ${symbol}`);
     }
 
-    // The live price is carried in meta regardless of candle interval, so one
-    // daily-interval request yields both the month of history and the current
-    // rate. Fall back to the last close if meta is missing.
     const marketTime = result.meta?.regularMarketTime;
-    const latest = result.meta?.regularMarketPrice ?? points[points.length - 1]!.rate;
+    const latest = round(result.meta?.regularMarketPrice ?? points[points.length - 1]!.rate);
 
     const first = points[0]!;
     return {

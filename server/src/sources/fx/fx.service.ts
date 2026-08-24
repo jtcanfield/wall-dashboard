@@ -159,10 +159,13 @@ export class FxService implements OnModuleInit {
             if (!wanted.has(row.quote)) {
                 continue;
             }
-            (out[row.quote as Quote] ??= []).push({ date: row.date, rate: row.rate });
+            (out[row.quote as Quote] ??= []).push({
+                t: DateTime.fromISO(row.date).toSeconds(),
+                rate: row.rate,
+            });
         }
         for (const list of Object.values(out)) {
-            list.sort((a, b) => a.date.localeCompare(b.date));
+            list.sort((a, b) => a.t - b.t);
         }
         return out;
     }
