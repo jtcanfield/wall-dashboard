@@ -183,6 +183,9 @@ body {
     align-items: center;
     gap: 14px;
     white-space: nowrap;
+    /* Without this a flex item refuses to shrink below its content, the bar
+       grows instead of clipping, and the marquee never sees an overflow. */
+    min-width: 0;
     font-variant-numeric: tabular-nums;
     /* Hinge along the top edge, like a flap falling forward into place. */
     transform-origin: 50% 0%;
@@ -261,6 +264,71 @@ body {
     }
 }
 
+/* ------------------------------------------------------------- marquee */
+
+/* One line of text that does not fit, looping left. See marquee.tsx for why
+   it loops rather than bouncing, and why the start marker is a bar and not a
+   dot. Inline-level so it drops into a flex row without changing its layout. */
+.marquee {
+    display: block;
+    overflow: hidden;
+    min-width: 0;
+    flex: 1;
+}
+
+.marquee__track {
+    display: inline-flex;
+    white-space: nowrap;
+    animation-name: marquee-scroll;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    will-change: transform;
+}
+
+/* `flex: none` is load-bearing, not tidying. As flex items these copies shrink
+   to fit the track by default, so the width they actually occupy stops matching
+   the width the loop distance was measured from — the wrap then lands short and
+   the text visibly jumps once per cycle. Measured: a 4383px copy laid out at
+   2794px until this was added. */
+.marquee__copy {
+    flex: none;
+}
+
+/* The gap between passes lives on the copy as padding, not as a flex `gap`,
+   so scrollWidth already includes it and the loop distance needs no manual
+   correction. Same lesson as the news track. */
+.marquee--scrolling .marquee__copy {
+    padding-right: 72px;
+}
+
+/* Marks the start of the message. A bar, because round dots already mean
+   "reminder" / "luften window" a few pixels away. */
+.marquee__mark {
+    display: inline-block;
+    width: 3px;
+    height: 0.8em;
+    border-radius: 1px;
+    background: currentColor;
+    opacity: 0.45;
+    margin-right: 14px;
+    vertical-align: -0.02em;
+}
+
+@keyframes marquee-scroll {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(calc(var(--marquee-distance, 0px) * -1));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .marquee__track {
+        animation: none;
+    }
+}
+
 /* --------------------------------------------------------- breaking bar */
 
 /* The one element allowed to shout. Everything on this panel is deliberately
@@ -323,14 +391,13 @@ body {
     color: var(--warm);
 }
 
+/* NWS writes whole sentences and a converging news story can be longer still,
+   so this overflows routinely. It scrolls rather than ellipsing — a truncated
+   emergency headline is the one case where the missing half matters most. */
 .topbar__headline {
     font-size: 32px;
     font-weight: 600;
     color: var(--ink);
-    /* Headlines are not length-controlled — NWS writes whole sentences. */
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     min-width: 0;
 }
 

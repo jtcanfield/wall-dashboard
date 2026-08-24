@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 import type { ComponentChildren } from "preact";
 import type { BreakingAlert, LuftenState, Reminder } from "@shared/types";
+import { Marquee } from "../components/marquee";
 import { clockTime } from "../time";
 import { useRotation } from "../use-rotation";
 import { WorldClock } from "./world-clock";
@@ -67,7 +68,7 @@ function breakingFace(breaking: BreakingAlert | null): Face | null {
             <span class="topbar__item" style={flapDelay(0)}>
                 <i class="topbar__siren" />
                 <strong class="topbar__label">{BREAKING_LABEL[breaking.kind]}</strong>
-                <span class="topbar__headline">{breaking.headline}</span>
+                <Marquee text={breaking.headline} class="topbar__headline" />
             </span>
         ),
     };
@@ -82,7 +83,7 @@ function remindersFace(reminders: Reminder[]): Face | null {
         body: reminders.slice(0, 3).map((reminder, i) => (
             <span class="topbar__item" key={reminder.id} style={flapDelay(i)}>
                 <i class="topbar__dot topbar__dot--reminder" />
-                {reminder.text}
+                <Marquee text={reminder.text} />
             </span>
         )),
     };
