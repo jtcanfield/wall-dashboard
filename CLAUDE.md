@@ -500,7 +500,43 @@ has taken the column.
 
 `.news--scrolling` fades **both** ends; a static list fades only the bottom,
 because with a short list the top item is the newest thing on the panel and
-must not be dimmed.
+must not be dimmed. The top fade is much shallower than the bottom one (6px
+against 28px) and that asymmetry is deliberate — see the loop marker below.
+
+**The loop marker.** Each copy of the list is headed by a `Latest` label and a
+rule. It sits *inside* the copy so it travels with the headlines and comes back
+around with them, which is the entire point: a seamless loop is otherwise
+indistinguishable from an endless feed, and you cannot tell a new headline from
+one you read two minutes ago.
+
+Its resting place is the very top of the viewport, which is why the top fade is
+only 6px. At 28px the label was dimmed at precisely the moment it exists to be
+read — the fix is a shallow fade rather than padding tuned to the fade depth,
+so the two are not coupled.
+
+Every child of a copy carries `margin-bottom`, including the last, and the
+copies themselves carry none. That keeps the gap between the final headline of
+one copy and the `Latest` of the next identical to the gap everywhere else; a
+copy margin stacked on a child margin would double the space at exactly the
+seam. Verified: seam gap and ordinary gap both 6.7px, drift 0.
+
+**The cycle progress bar** counts down to the moment `Latest` is back at the
+top. It shares the scroll's duration and mounts in the same commit, so the two
+stay in phase with no coordination — the track is at `translateY(0)` exactly
+when the bar is empty, and both take a duration change identically when a new
+headline resizes the track.
+
+It is **horizontal**, where the top bar's is vertical, on the same principle:
+the indicator runs *perpendicular* to the content it times. It also avoids a
+trap — a vertical strip down the side of a scrolling list reads as a scrollbar,
+and a scrollbar that shrinks instead of moving is a broken scrollbar.
+
+**The track is measured with a `ResizeObserver`, not just on item change.** The
+headline ids are not the only thing that changes its height: a late webfont, a
+stylesheet edit, or the Twitch player shrinking the column all resize the track
+while the ids stay put. A stale distance does not merely look wrong once — the
+loop no longer lands where the track repeats, so it drifts by that error *every
+cycle*.
 
 ### Filler filtering — `sources/news/filter.ts`
 

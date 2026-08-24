@@ -500,10 +500,14 @@ body {
    explains the top. Only when scrolling, though — with a short list the top
    item is the newest thing on the panel and must not be dimmed. */
 .news--scrolling {
+    /* The top fade is deliberately much shallower than the bottom one. The
+       "Latest" marker's resting place is the very top of the viewport, and a
+       deep fade there dims the label at precisely the moment it exists to be
+       read. 6px is enough to take the hard edge off a headline leaving. */
     mask-image: linear-gradient(
         to bottom,
         transparent 0,
-        #000 28px,
+        #000 6px,
         #000 calc(100% - 28px),
         transparent 100%
     );
@@ -520,12 +524,79 @@ body {
     will-change: transform;
 }
 
+.news__copy {
+    display: flex;
+    flex-direction: column;
+}
+
 /* margin-bottom rather than a container `gap`, deliberately — see the comment
    in news-panel.tsx. Gap puts a seam between the two copies of the list that
    has to be hand-corrected in the scroll distance, and any drift there shows
-   up as a visible jump once per cycle. */
-.news__track > .news__item {
+   up as a visible jump once per cycle.
+
+   It goes on *every* child including the last, and the copies themselves carry
+   no margin. That is what keeps the spacing between the last headline of one
+   copy and the "Latest" of the next identical to the spacing everywhere else —
+   a copy margin on top of a child margin would double the gap at exactly the
+   seam the marker is there to draw attention to. */
+.news__copy > * {
     margin-bottom: 10px;
+}
+
+/* ------------------------------------------------------- news loop marker */
+
+/* Marks the top of the list so a seamless loop is legible as a loop. Without
+   it there is no way to tell a fresh headline from one that came round again. */
+.news__marker {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    /* Opens up the loop boundary — the one seam in this list that *should* be
+       visible — and keeps the label clear of the top fade when the marker is
+       at rest. Not tuned to the fade depth: the fade is shallow enough that
+       this has margin either way. */
+    padding-top: 10px;
+}
+
+.news__marker-label {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    flex: none;
+}
+
+/* The <hr>. A real one would bring its own borders and margins to fight. */
+.news__marker-rule {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+
+/* Counts down one full scroll cycle. Horizontal, where the top bar's is
+   vertical, because both run *perpendicular* to the content they time — and
+   because a vertical strip beside a scrolling list reads as a scrollbar, and a
+   scrollbar that shrinks instead of moving is a broken scrollbar. */
+.news__progress {
+    display: block;
+    flex: none;
+    height: 3px;
+    margin-bottom: 10px;
+    background: var(--accent);
+    transform-origin: left center;
+    animation-name: news-progress;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+@keyframes news-progress {
+    from {
+        transform: scaleX(1);
+    }
+    to {
+        transform: scaleX(0);
+    }
 }
 
 @keyframes news-scroll {
@@ -538,7 +609,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .news__track {
+    .news__track,
+    .news__progress {
         animation: none;
     }
 }

@@ -40,6 +40,29 @@ function Item({ item }: { item: NewsItem }) {
 }
 
 /**
+ * One pass of the list, headed by the loop marker.
+ *
+ * The marker sits *inside* the copy rather than above the track, so it travels
+ * with the headlines and comes back around with them. That is the whole point
+ * of it: without a mark, a seamless loop is indistinguishable from an endless
+ * feed, and you cannot tell whether you are reading something new or something
+ * you already read two minutes ago.
+ */
+function Copy({ items, echo }: { items: NewsItem[]; echo?: boolean }) {
+    return (
+        <div class="news__copy" aria-hidden={echo ? "true" : undefined}>
+            <div class="news__marker">
+                <span class="news__marker-label">Latest</span>
+                <span class="news__marker-rule" />
+            </div>
+            {items.map((item) => (
+                <Item item={item} key={echo ? `echo-${item.id}` : item.id} />
+            ))}
+        </div>
+    );
+}
+
+/**
  * The feed scrolls continuously rather than paging, because a page flip on a
  * wall display steals attention at a moment you did not choose — you look up
  * because something moved, not because you wanted to read. A slow crawl is
@@ -47,10 +70,10 @@ function Item({ item }: { item: NewsItem }) {
  *
  * The track holds the list twice and translates by exactly one copy's height,
  * so the loop is seamless: the moment the first copy leaves, the second is
- * already in its place. This is why the items carry `margin-bottom` instead of
- * the container carrying `gap` — gap puts a seam between the two copies that
- * has to be added back into the distance by hand, and any drift there shows up
- * as a visible jump once a cycle.
+ * already in its place. This is why every child carries `margin-bottom`
+ * instead of the container carrying `gap` — gap puts a seam between the two
+ * copies that has to be added back into the distance by hand, and any drift
+ * there shows up as a visible jump once a cycle.
  */
 export function NewsPanel({ entry }: Props) {
     const items = (entry.data ?? []).slice(0, NEWS_COUNT);
@@ -68,10 +91,28 @@ export function NewsPanel({ entry }: Props) {
         if (!box || !rail) {
             return;
         }
-        const copy = rail.scrollHeight / 2;
-        // Nothing to scroll if the list already fits — which is what happens
-        // when the feed is cold or a Twitch player has taken the column.
-        setDistance(copy > box.clientHeight ? copy : 0);
+
+        const measure = (): void => {
+            const copy = rail.scrollHeight / 2;
+            // Nothing to scroll if the list already fits — which is what
+            // happens when the feed is cold or a Twitch player has taken the
+            // column.
+            setDistance(copy > box.clientHeight ? copy : 0);
+        };
+        measure();
+
+        // The headline ids are not the only thing that changes this height. A
+        // late webfont, a stylesheet edit, or the Twitch player appearing and
+        // shrinking the column all resize the track while the ids stay put,
+        // and a stale distance means the loop no longer lands where the track
+        // repeats — it drifts by that error every single cycle. Observing the
+        // element is the only measurement that cannot go stale.
+        const observer = new ResizeObserver(measure);
+        observer.observe(rail);
+        observer.observe(box);
+        return () => {
+            observer.disconnect();
+        };
     }, [signature]);
 
     const seconds = distance / PX_PER_SECOND;
@@ -82,6 +123,14 @@ export function NewsPanel({ entry }: Props) {
                 <span class="panel__title">News</span>
                 <Stale entry={entry} expectedMs={EXPECTED_INTERVAL_MS.news} />
             </header>
+            {/* Counts down to the moment "Latest" is back at the top. Shares the
+                scroll's duration and mounts in the same commit, so the two stay
+                in phase without any coordination: the track is at translateY(0)
+                exactly when this is empty, and both take a duration change
+                identically if a new headline resizes the track. */}
+            {distance > 0 && (
+                <span class="news__progress" style={{ animationDuration: `${seconds}s` }} />
+            )}
             <div class={`panel__body news${distance > 0 ? " news--scrolling" : ""}`} ref={viewport}>
                 {items.length === 0 ? (
                     <span class="empty">No headlines yet</span>
@@ -94,14 +143,10 @@ export function NewsPanel({ entry }: Props) {
                             animationDuration: distance > 0 ? `${seconds}s` : undefined,
                         }}
                     >
-                        {items.map((item) => (
-                            <Item item={item} key={item.id} />
-                        ))}
+                        <Copy items={items} />
                         {/* The second copy is what makes the wrap seamless. It is
                             decoration, so it is hidden from assistive tech. */}
-                        {items.map((item) => (
-                            <Item item={item} key={`echo-${item.id}`} />
-                        ))}
+                        <Copy items={items} echo />
                     </div>
                 )}
             </div>
