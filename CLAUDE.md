@@ -219,6 +219,11 @@ blanks because an upstream had a bad minute.
 | Twitch | 90 sec |
 | FX | 15 min |
 | Collection schedule | daily |
+| NWS alerts | 60 sec |
+
+Alerts poll at a minute because the panel exists to say "this is happening
+now"; a fifteen-minute cadence would routinely show a shelter-in-place order
+that had already been lifted.
 
 Stagger the initial run of each by a few seconds so boot doesn't fire five
 simultaneous requests.
@@ -604,6 +609,38 @@ sources are added rather than more expensive.
 A test event in JSON, toggled by an env var, drives the **same code path** as a
 real alert. It is not a separate render path — otherwise the thing that only
 ever runs during a real emergency is the thing that was never exercised.
+
+```bash
+BREAKING_TEST=1 npm run dev     # forces server/config/breaking-test.json
+NWS_ZONE=NCZ041                 # Wake County; the one thing that moves
+```
+
+**Measured against live data, 2026-08-24.** All 242 active alerts nationwide:
+42 would raise a bar, **82.6% suppressed** — the bulk of them Small Craft
+Advisories (101 of them), Heat Advisories, and Special Weather Statements.
+Scoped to one inland zone the real-world rate is near zero on a normal day,
+which is the intent.
+
+**One of those 242 had `status: "Test"`.** That is not hypothetical: NWS
+publishes Test and Exercise alerts on the live endpoint, and the `status`
+check is the only thing standing between a drill and a red bar. Do not remove
+it.
+
+`AlertsService` reads *published state* to get the news items rather than
+calling `NewsService`. That keeps "sources never talk to each other" true — it
+consumes the same stream the client does.
+
+A velocity surge has no upstream "it's over" signal, so it expires on a
+45-minute TTL. NWS alerts carry their own `ends`/`expires`.
+
+**Ranking: emergency > weather > developing.** Only one bar shows. The
+`developing` bar is amber and says "Developing", not red and "Breaking" —
+several outlets converging is weaker evidence than an IPAWS alert and should
+not claim the same certainty.
+
+In the top bar, **`useRotation` is called before the breaking branch, not
+after.** An early return above the hook would change hook order at the exact
+moment an alert arrives or clears, which is the one time the bar has to work.
 
 ### Collection schedule — ReCollect
 
