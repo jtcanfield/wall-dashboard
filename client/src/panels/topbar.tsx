@@ -25,8 +25,18 @@ const BREAKING_LABEL: Record<BreakingAlert["kind"], string> = {
     developing: "Developing",
 };
 
-/** How long each face holds before flipping to the next. */
+/** How long an ordinary face holds before flipping to the next. */
 const ROTATE_MS = 9_000;
+
+/**
+ * A breaking alert takes a longer turn than the bin schedule.
+ *
+ * It joins the rotation rather than replacing it — the reminders and the
+ * luften windows still need to get through — but a shelter-in-place order
+ * sharing time equally with "change the sheets" undersells it. At double the
+ * dwell it holds the bar for half of each cycle.
+ */
+const BREAKING_MS = 18_000;
 
 /**
  * Per-item animation delay, driving the staggered flap.
@@ -39,6 +49,28 @@ const flapDelay = (index: number) => ({ "--flap-index": String(index) });
 interface Face {
     id: string;
     body: ComponentChildren;
+    /** Modifier applied to the whole bar while this face is showing. */
+    tone?: string;
+    /** Dwell override; defaults to ROTATE_MS. */
+    holdMs?: number;
+}
+
+function breakingFace(breaking: BreakingAlert | null): Face | null {
+    if (!breaking) {
+        return null;
+    }
+    return {
+        id: `breaking-${breaking.id}`,
+        tone: `topbar--breaking topbar--${breaking.kind}`,
+        holdMs: BREAKING_MS,
+        body: (
+            <span class="topbar__item" style={flapDelay(0)}>
+                <i class="topbar__siren" />
+                <strong class="topbar__label">{BREAKING_LABEL[breaking.kind]}</strong>
+                <span class="topbar__headline">{breaking.headline}</span>
+            </span>
+        ),
+    };
 }
 
 function remindersFace(reminders: Reminder[]): Face | null {
@@ -108,7 +140,12 @@ function luftenFace(luften: LuftenState | null): Face | null {
  * rather than flipping between itself.
  */
 export function TopBar({ reminders, luften, breaking, now }: Props) {
-    const faces = [remindersFace(reminders), luftenFace(luften)].filter(
+    // Breaking leads the rotation but does not replace it: the reminders and
+    // today's luften windows still have to get their turn. An alert that took
+    // the bar permanently would silently cancel the trash reminder for as long
+    // as it ran, which is the wrong trade for a bar that is also the only place
+    // those live.
+    const faces = [breakingFace(breaking), remindersFace(reminders), luftenFace(luften)].filter(
         (face): face is Face => face !== null,
     );
 
@@ -123,42 +160,21 @@ export function TopBar({ reminders, luften, breaking, now }: Props) {
         });
     }
 
-    // Unconditionally, before any branch. An early return above this would
-    // change the hook order the moment an alert arrived or cleared, which is
-    // the one time the bar absolutely has to keep working.
-    const index = useRotation(faces.length, ROTATE_MS);
+    const index = useRotation(faces.map((f) => f.holdMs ?? ROTATE_MS));
     const face = faces[index] ?? faces[0]!;
 
-    // Breaking takes the whole bar. It does not join the rotation: an alert
-    // that flips away every nine seconds to show the bin schedule is not an
-    // alert. The clocks stay because dropping them would shift the layout of
-    // the one element the eye is already going to.
-    if (breaking) {
-        return (
-            <section class={`panel topbar topbar--breaking topbar--${breaking.kind}`}>
-                <div class="topbar__face">
-                    <span class="topbar__item" style={flapDelay(0)}>
-                        <i class="topbar__siren" />
-                        <strong class="topbar__label">{BREAKING_LABEL[breaking.kind]}</strong>
-                        <span class="topbar__headline">{breaking.headline}</span>
-                    </span>
-                </div>
-                <WorldClock now={now} />
-                <span class="topbar__clock">{now.toFormat("cccc d LLLL · h:mm a")}</span>
-            </section>
-        );
-    }
-
     return (
-        <section class="panel topbar">
+        <section class={`panel topbar ${face.tone ?? ""}`.trimEnd()}>
             {/* Times the flip, so the change never arrives unannounced. Keyed by
-                the rotation index so it restarts in step with the face; omitted
-                entirely when there is nothing to rotate to. */}
+                the rotation index so it restarts in step with the face, and its
+                duration follows that face's dwell rather than a fixed value —
+                a breaking face holds twice as long and the strip has to agree.
+                Omitted entirely when there is nothing to rotate to. */}
             {faces.length > 1 && (
                 <span
                     class="topbar__progress"
                     key={`progress-${index}`}
-                    style={{ animationDuration: `${ROTATE_MS}ms` }}
+                    style={{ animationDuration: `${face.holdMs ?? ROTATE_MS}ms` }}
                 />
             )}
 

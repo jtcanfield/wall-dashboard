@@ -273,10 +273,21 @@ body {
 }
 
 .topbar--breaking .topbar__item {
-    /* No flap. The alert should be there the instant it is there. */
-    animation: none;
+    /* Keeps the flap: the alert is a face in the rotation now, and arriving by
+       the same mechanism as everything else is what makes the bar read as one
+       object rather than two overlapping ones. */
     gap: 20px;
     min-width: 0;
+}
+
+/* The strip has to take the tone too, or a red bar counts itself down in the
+   accent blue of the panel it just replaced. */
+.topbar--breaking .topbar__progress {
+    background: var(--live);
+}
+
+.topbar--developing .topbar__progress {
+    background: var(--warm);
 }
 
 .topbar--developing {
@@ -475,15 +486,61 @@ body {
    lines at 16px/1.25) plus 15 x 10px gaps leaves headroom. Both numbers move
    together — raising VISIBLE without shrinking these clips the last item. */
 .news {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+    position: relative;
     overflow: hidden;
     /* A live Twitch player takes ~300px off this column, which cuts the last
        few headlines mid-line. The fade turns a hard clip into something that
        reads as "there is more", which is true, rather than as a rendering
        fault. Costs nothing when the list already fits. */
     mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent 100%);
+}
+
+/* Both ends once it is moving: a headline sliding out of the top edge under a
+   hard cut looks like a glitch, and the same fade that explains the bottom
+   explains the top. Only when scrolling, though — with a short list the top
+   item is the newest thing on the panel and must not be dimmed. */
+.news--scrolling {
+    mask-image: linear-gradient(
+        to bottom,
+        transparent 0,
+        #000 28px,
+        #000 calc(100% - 28px),
+        transparent 100%
+    );
+}
+
+.news__track {
+    display: flex;
+    flex-direction: column;
+    animation-name: news-scroll;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    /* Duration is set inline from the measured track height, so the speed is
+       constant regardless of how tall the list turns out to be. */
+    will-change: transform;
+}
+
+/* margin-bottom rather than a container `gap`, deliberately — see the comment
+   in news-panel.tsx. Gap puts a seam between the two copies of the list that
+   has to be hand-corrected in the scroll distance, and any drift there shows
+   up as a visible jump once per cycle. */
+.news__track > .news__item {
+    margin-bottom: 10px;
+}
+
+@keyframes news-scroll {
+    from {
+        transform: translateY(0);
+    }
+    to {
+        transform: translateY(calc(var(--news-distance, 0px) * -1));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .news__track {
+        animation: none;
+    }
 }
 
 .news__item {

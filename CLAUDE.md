@@ -462,18 +462,40 @@ one worked. `maxAgeHours` is per-feed: Новая gets 48h because it published
 exactly one item inside 24h on a Sunday, and a source that silently vanishes
 reads as a bug.
 
-**`MAX_PER_SOURCE` has to scale down as sources are added** — it went 8 → 3
-when the set went 4 → 13. Under a strict newest-first sort it is the *only*
-balancing mechanism in the system, and at 8 the two highest-volume feeds (DW
-pulls 130 items, Guardian 45) take the whole panel between them.
+**`MAX_PER_SOURCE` tracks the slot count in both directions.** It went 8 → 3
+when the set went 4 → 13, then 3 → 5 when the panel went from 16 slots to 40.
+It has to stay low enough that the high-volume feeds cannot take the panel
+between them, and high enough to leave a pool bigger than `NEWS_COUNT` —
+thirteen sources at 3 apiece is 39 candidates for 40 slots, which is not a
+selection at all.
 
-The panel shows **16 headlines**, not 9. Adding nine sources while holding the
-slot count would have changed *which* headlines appeared without changing how
-much was on screen, which is not what the sources were for. `VISIBLE` in
-`news-panel.tsx` and the `.news` type scale in `styles.css` are sized together
-against the worst case of every headline wrapping to two lines; raising one
-without shrinking the other clips the last item. A scrolling feed was
-considered and deferred — try the denser static list first.
+**The panel carries 40 headlines and scrolls slowly through them**, about
+sixteen visible at a time. `NEWS_COUNT` is the set size, not the on-screen
+count.
+
+Continuous crawl rather than paging, because a page flip on a wall display
+steals attention at a moment you did not choose — you look up because
+something moved, not because you wanted to read. A slow crawl is ignorable
+until you decide to read it. 14px/second, so forty headlines is a ~2,265px
+track and a full cycle takes a little under three minutes.
+
+**The track holds the list twice** and translates by exactly one copy's height,
+so the wrap is seamless. This is why the items carry `margin-bottom` and the
+container does **not** carry `gap`: a gap puts a seam between the two copies
+that has to be added back into the distance by hand, and any drift there shows
+up as a visible jump once per cycle. Measured: declared distance 2265px against
+a measured copy height of 2265px, drift 0.
+
+Duration is set inline from the measured height so the *speed* is constant
+however tall the list turns out to be, and the measurement keys off the item
+ids rather than the array identity — the array is rebuilt on every SSE frame
+and would otherwise re-measure forever. The list stops scrolling on its own if
+it already fits, which is what happens when the feed is cold or a Twitch player
+has taken the column.
+
+`.news--scrolling` fades **both** ends; a static list fades only the bottom,
+because with a short list the top item is the newest thing on the panel and
+must not be dimmed.
 
 ### Filler filtering — `sources/news/filter.ts`
 
@@ -536,8 +558,9 @@ newest item was 17.8h old and Meduza's 8.7h against a wall of fresher US and EU
 headlines. The source with an entire translation pipeline behind it would
 essentially never appear.
 
-`REGION_MINIMUMS` guarantees EU three slots and Russia two. The critical
-property, and the reason this is not the reverted interleave under a new name:
+`REGION_MINIMUMS` guarantees EU six slots and Russia four, out of forty. The
+critical property, and the reason this is not the reverted interleave under a
+new name:
 
 > **The floors decide membership. They never decide order.**
 
@@ -643,9 +666,19 @@ A velocity surge has no upstream "it's over" signal, so it expires on a
 several outlets converging is weaker evidence than an IPAWS alert and should
 not claim the same certainty.
 
-In the top bar, **`useRotation` is called before the breaking branch, not
-after.** An early return above the hook would change hook order at the exact
-moment an alert arrives or clears, which is the one time the bar has to work.
+**Breaking is a face in the rotation, not a replacement for it.** It leads and
+takes a double turn (18s against 9s), but the reminders and the luften windows
+still get theirs. An alert that held the bar permanently would silently cancel
+the trash reminder for as long as it ran, and the top bar is the only place
+those live. It flips in on the same split-flap as every other face — arriving
+by the same mechanism is what keeps the bar reading as one object rather than
+two overlapping ones.
+
+`useRotation` therefore takes an **array of dwell times**, one per face, and
+chains `setTimeout` rather than using `setInterval` — the delay has to change
+between ticks. The progress strip reads its duration from the current face, so
+a breaking face counts down over 18s and takes the tone's colour; a red bar
+counting itself down in accent blue looks like a bug.
 
 ### Collection schedule — ReCollect
 
