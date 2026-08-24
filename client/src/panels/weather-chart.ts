@@ -21,6 +21,15 @@ const COMMUTE_HOURS = [8, 15];
 /** Rain-chance bars: 70% of the hour slot, capped so a short window doesn't slab. */
 const bars = uPlot.paths.bars?.({ size: [0.7, 26] });
 
+/**
+ * Commute readout type size, in px.
+ *
+ * Tripled from the original 15px: this is a wall display read from across the
+ * room, and at 15px the two numbers that justify the markers existing were the
+ * smallest thing on the panel.
+ */
+const READOUT_PX = 45;
+
 export type WeatherSeries = AlignedData;
 
 export function buildSeries(hourly: WeatherHour[]): WeatherSeries {
@@ -79,33 +88,39 @@ function drawReadout(u: uPlot, x: number, at: number): void {
 
     const ctx = u.ctx;
     ctx.save();
-    ctx.font = '600 15px "Noto Sans", sans-serif';
-    const padX = 8;
-    const gap = sub ? 8 : 0;
-    const width = ctx.measureText(label).width + (sub ? ctx.measureText(sub).width : 0) + gap;
-    const boxW = width + padX * 2;
-    const boxH = 24;
+    ctx.font = `600 ${READOUT_PX}px "Noto Sans", sans-serif`;
 
-    // Keep the box inside the plot when a marker lands near the right edge.
+    // Stacked, not side by side. At this size the two values laid out in a row
+    // measure ~200px, and 08:00 and 15:00 sit about 200px apart in a 36-hour
+    // window — the boxes would collide on every same-day pair.
+    const padX = 14;
+    const padY = 10;
+    const lineGap = sub ? 6 : 0;
+    const tempW = ctx.measureText(label).width;
+    const rainW = sub ? ctx.measureText(sub).width : 0;
+    const boxW = Math.max(tempW, rainW) + padX * 2;
+    const boxH = READOUT_PX + (sub ? READOUT_PX + lineGap : 0) + padY * 2;
+
+    // Keep the box inside the plot when a marker lands near either edge.
     const right = u.bbox.left + u.bbox.width;
-    const boxX = Math.min(x + 6, right - boxW - 2);
-    const boxY = u.bbox.top + 24;
+    const boxX = Math.max(u.bbox.left, Math.min(x + 6, right - boxW - 2));
+    const boxY = u.bbox.top + 32;
 
     ctx.fillStyle = alpha(css("--bg"), 0.9);
     ctx.strokeStyle = css("--border");
     ctx.lineWidth = 1;
     ctx.setLineDash([]);
     ctx.beginPath();
-    ctx.roundRect(boxX, boxY, boxW, boxH, 5);
+    ctx.roundRect(boxX, boxY, boxW, boxH, 8);
     ctx.fill();
     ctx.stroke();
 
     ctx.textBaseline = "middle";
     ctx.fillStyle = css("--temp");
-    ctx.fillText(label, boxX + padX, boxY + boxH / 2);
+    ctx.fillText(label, boxX + padX, boxY + padY + READOUT_PX / 2);
     if (sub) {
         ctx.fillStyle = alpha(css("--accent"), 0.95);
-        ctx.fillText(sub, boxX + padX + ctx.measureText(label).width + gap, boxY + boxH / 2);
+        ctx.fillText(sub, boxX + padX, boxY + padY + READOUT_PX + lineGap + READOUT_PX / 2);
     }
     ctx.restore();
 }
@@ -168,7 +183,7 @@ function markersPlugin(
                 ctx.setLineDash([6, 6]);
                 ctx.lineWidth = 2;
                 ctx.fillStyle = css("--ink-faint");
-                ctx.font = '13px "Noto Sans", sans-serif';
+                ctx.font = '600 20px "Noto Sans", sans-serif';
 
                 let day = DateTime.fromMillis(min * 1000).startOf("day");
                 const end = DateTime.fromMillis(max * 1000);
@@ -183,7 +198,7 @@ function markersPlugin(
                         ctx.moveTo(x, u.bbox.top);
                         ctx.lineTo(x, u.bbox.top + u.bbox.height);
                         ctx.stroke();
-                        ctx.fillText(`${hour}:00`, x + 6, u.bbox.top + 16);
+                        ctx.fillText(`${hour}:00`, x + 6, u.bbox.top + 20);
                         drawReadout(u, x, at);
                     }
                     day = day.plus({ days: 1 });
