@@ -14,6 +14,14 @@ interface Props {
 /** How long each face holds before flipping to the next. */
 const ROTATE_MS = 9_000;
 
+/**
+ * Per-item animation delay, driving the staggered flap.
+ *
+ * A custom property rather than a direct animation-delay so the timing lives
+ * in the stylesheet with the keyframes, and this only supplies the index.
+ */
+const flapDelay = (index: number) => ({ "--flap-index": String(index) });
+
 interface Face {
     id: string;
     body: ComponentChildren;
@@ -25,8 +33,8 @@ function remindersFace(reminders: Reminder[]): Face | null {
     }
     return {
         id: "reminders",
-        body: reminders.slice(0, 3).map((reminder) => (
-            <span class="topbar__item" key={reminder.id}>
+        body: reminders.slice(0, 3).map((reminder, i) => (
+            <span class="topbar__item" key={reminder.id} style={flapDelay(i)}>
                 <i class="topbar__dot topbar__dot--reminder" />
                 {reminder.text}
             </span>
@@ -54,7 +62,7 @@ function luftenFace(luften: LuftenState | null): Face | null {
         return {
             id: "luften-none",
             body: (
-                <span class="topbar__item topbar__item--quiet">
+                <span class="topbar__item topbar__item--quiet" style={flapDelay(0)}>
                     <i class="topbar__dot topbar__dot--none" />
                     No airing window today
                 </span>
@@ -64,8 +72,8 @@ function luftenFace(luften: LuftenState | null): Face | null {
 
     return {
         id: "luften",
-        body: windows.slice(0, 2).map((window) => (
-            <span class="topbar__item" key={`${window.kind}-${window.start}`}>
+        body: windows.slice(0, 2).map((window, i) => (
+            <span class="topbar__item" key={`${window.kind}-${window.start}`} style={flapDelay(i)}>
                 <i class={`topbar__dot topbar__dot--${window.kind}`} />
                 {clockTime(window.start)}–{clockTime(window.end)}
                 <small class="topbar__note">
@@ -91,7 +99,14 @@ export function TopBar({ reminders, luften, now }: Props) {
     );
 
     if (faces.length === 0) {
-        faces.push({ id: "idle", body: <span class="topbar__item--quiet">Nothing to do</span> });
+        faces.push({
+            id: "idle",
+            body: (
+                <span class="topbar__item topbar__item--quiet" style={flapDelay(0)}>
+                    Nothing to do
+                </span>
+            ),
+        });
     }
 
     const index = useRotation(faces.length, ROTATE_MS);

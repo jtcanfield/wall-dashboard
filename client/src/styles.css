@@ -144,16 +144,28 @@ body {
     min-width: 0;
     font-size: 34px;
     font-weight: 600;
-    transform-origin: center center;
-    animation: topbar-flip 460ms cubic-bezier(0.2, 0.75, 0.3, 1) both;
+    /* Perspective has to sit on the direct parent of the transformed items,
+       not on .topbar two levels up, or the flap renders as a flat squash. */
+    perspective: 700px;
 }
 
-@keyframes topbar-flip {
-    from {
+/* Split-flap: the card drops in from above its hinge, overshoots very
+   slightly, and settles — the small bounce is what reads as mechanical
+   rather than as a fade. Deliberately short; this fires every nine seconds
+   all day and anything longer becomes the thing you look at. */
+@keyframes topbar-flap {
+    0% {
         transform: rotateX(-90deg);
         opacity: 0;
     }
-    to {
+    55% {
+        transform: rotateX(12deg);
+        opacity: 1;
+    }
+    78% {
+        transform: rotateX(-5deg);
+    }
+    100% {
         transform: rotateX(0deg);
         opacity: 1;
     }
@@ -172,6 +184,11 @@ body {
     gap: 14px;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
+    /* Hinge along the top edge, like a flap falling forward into place. */
+    transform-origin: 50% 0%;
+    backface-visibility: hidden;
+    animation: topbar-flap 420ms cubic-bezier(0.3, 0.8, 0.35, 1) both;
+    animation-delay: calc(var(--flap-index, 0) * 90ms);
 }
 
 .topbar__item--quiet {
