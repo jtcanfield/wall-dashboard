@@ -4,3 +4,4 @@ dist/
 *.log
 server/data/cache.json
 *.tsbuildinfo
+*.local.md

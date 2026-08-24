@@ -28,7 +28,7 @@ const RANK: Record<BreakingKind, number> = { emergency: 0, weather: 1, developin
  * Owns the red bar.
  *
  * Two independent triggers, because there is no free real-time breaking-news
- * API to lean on (see CLAUDE.md — GDELT rate-limits and keyword search returns
+ * API to lean on (see CLAUDE.local.md — GDELT rate-limits and keyword search returns
  * playoff brackets):
  *
  * 1. NWS civil-emergency and severe-weather alerts for one zone, polled.
