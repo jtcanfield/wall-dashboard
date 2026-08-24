@@ -13,7 +13,12 @@ export function App() {
     return (
         <div class="dashboard">
             {/* Reminders and luften share the top bar, rotating between them. */}
-            <TopBar reminders={state.reminders} luften={state.luften} now={now} />
+            <TopBar
+                reminders={state.reminders}
+                luften={state.luften}
+                breaking={state.breaking}
+                now={now}
+            />
 
             <div class="dashboard__body">
                 <div class="column column--left">

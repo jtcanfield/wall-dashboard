@@ -6,6 +6,7 @@ import { CacheModule } from "./cache/cache.module";
 import { SourcesModule } from "./sources/sources.module";
 import { LuftenModule } from "./luften/luften.module";
 import { RemindersModule } from "./reminders/reminders.module";
+import { AlertsModule } from "./alerts/alerts.module";
 
 @Module({
     imports: [
@@ -16,6 +17,7 @@ import { RemindersModule } from "./reminders/reminders.module";
         LuftenModule,
         SourcesModule,
         RemindersModule,
+        AlertsModule,
     ],
 })
 export class AppModule {}

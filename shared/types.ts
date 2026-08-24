@@ -170,6 +170,32 @@ export interface LuftenState {
     lookahead: LuftenDay[];
 }
 
+/* ---------------------------------------------------------------- breaking */
+
+/**
+ * `emergency` is an IPAWS civil alert (shelter in place, evacuation, AMBER),
+ * `weather` is an Extreme/Severe NWS warning, `developing` is several news
+ * sources converging on one story. They rank in that order — only one bar
+ * shows, and a tornado warning outranks a busy news cycle.
+ */
+export type BreakingKind = "emergency" | "weather" | "developing";
+
+export interface BreakingAlert {
+    id: string;
+    kind: BreakingKind;
+    headline: string;
+    /** Area, or the sources that converged. Null when there is nothing to add. */
+    detail: string | null;
+    /** ISO 8601. */
+    since: string;
+    /**
+     * ISO 8601 when the alert stops being shown, or null for "until it stops
+     * being reported". NWS supplies this; a velocity surge gets a TTL instead,
+     * because nothing upstream will ever tell us it is over.
+     */
+    until: string | null;
+}
+
 /* --------------------------------------------------------------- reminders */
 
 export interface Reminder {
@@ -191,6 +217,11 @@ export interface DashboardState {
     luften: LuftenState | null;
     /** Evaluated server-side per push. Never stale, so not a CacheEntry. */
     reminders: Reminder[];
+    /**
+     * The one thing that overrides everything else on the panel. Null almost
+     * always, which is the point — a bar that is usually up is furniture.
+     */
+    breaking: BreakingAlert | null;
 }
 
 export const emptyEntry = <T>(): CacheEntry<T> => ({
@@ -208,4 +239,5 @@ export const emptyState = (): DashboardState => ({
     collection: emptyEntry<CollectionEvent[]>(),
     luften: null,
     reminders: [],
+    breaking: null,
 });

@@ -12,6 +12,7 @@ const OFFSETS: Record<string, number> = {
     twitch: 7,
     fx: 10,
     collection: 13,
+    alerts: 16,
 };
 
 const log = new Logger("Stagger");

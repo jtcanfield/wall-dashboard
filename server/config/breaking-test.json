@@ -1,0 +1,6 @@
+{
+    "id": "breaking-test-shelter",
+    "kind": "emergency",
+    "headline": "Shelter In Place Warning issued for Wake County",
+    "detail": "TEST EVENT — set BREAKING_TEST=1 to show this bar, unset it to clear."
+}

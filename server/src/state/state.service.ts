@@ -4,6 +4,7 @@ import { promises as fs } from "node:fs";
 import * as path from "node:path";
 import { dataPath } from "../paths";
 import {
+    BreakingAlert,
     CacheEntry,
     DashboardState,
     LuftenState,
@@ -59,6 +60,10 @@ export class StateService implements OnModuleInit {
 
     setReminders(reminders: Reminder[]): void {
         this.push({ reminders });
+    }
+
+    setBreaking(breaking: BreakingAlert | null): void {
+        this.push({ breaking });
     }
 
     private push(partial: Partial<DashboardState>): void {

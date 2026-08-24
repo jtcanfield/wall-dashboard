@@ -261,6 +261,84 @@ body {
     }
 }
 
+/* --------------------------------------------------------- breaking bar */
+
+/* The one element allowed to shout. Everything on this panel is deliberately
+   low-luminance for a sixteen-hour day in a living room; this is the exception,
+   and it earns it by being null almost always. A bar that is usually up is
+   furniture. */
+.topbar--breaking {
+    background: #2a0f12;
+    border-color: var(--live);
+}
+
+.topbar--breaking .topbar__item {
+    /* No flap. The alert should be there the instant it is there. */
+    animation: none;
+    gap: 20px;
+    min-width: 0;
+}
+
+.topbar--developing {
+    /* Several outlets converging is weaker evidence than an IPAWS alert, and
+       the colour says so — amber, not red. */
+    background: #2a1e0d;
+    border-color: var(--warm);
+}
+
+.topbar__siren {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    flex: none;
+    background: var(--live);
+    animation: breaking-pulse 1.8s ease-in-out infinite;
+}
+
+.topbar--developing .topbar__siren {
+    background: var(--warm);
+}
+
+.topbar__label {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--live);
+    flex: none;
+}
+
+.topbar--developing .topbar__label {
+    color: var(--warm);
+}
+
+.topbar__headline {
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--ink);
+    /* Headlines are not length-controlled — NWS writes whole sentences. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+@keyframes breaking-pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.25;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .topbar__siren {
+        animation: none;
+    }
+}
+
 /* --------------------------------------------------------------- world clock */
 
 .worldclock {
@@ -411,7 +489,7 @@ body {
 }
 
 .news__title {
-    font-size: 16px;
+    font-size: 20px;
     line-height: 1.25;
     overflow: hidden;
     display: -webkit-box;
