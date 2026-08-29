@@ -1,0 +1,24 @@
+# TV power scheduling over the LAN, via the Roku ECP HTTP API. No CEC, no extra
+# hardware — the Wyse is DisplayPort-only and DP carries no CEC line anyway.
+#
+# Install with:  crontab -u wall deploy/tv-power.crontab
+# Replace TV_IP with the television's reserved address before installing.
+#
+# This turns the *display* on and off. The Wyse itself never sleeps; see
+# deploy/kiosk.sh for the xset calls that keep it awake.
+#
+# The TV needs all of these set or this silently does nothing:
+#   Settings > System > Advanced > Control by mobile apps = Enabled (not Limited)
+#   Fast TV Start = On          keeps the network stack alive while "off"
+#   Power > Auto power savings = Off   or it kills the display after ~4h idle
+#   Screen saver = disabled
+#   ...and a DHCP reservation, or TV_IP moves and this stops working quietly.
+
+TV_IP=192.168.1.x
+
+# On at 06:00, then select the input the Wyse is plugged into. The sleep is
+# there because PowerOn returns before the TV can accept an input change.
+0 6 * * * curl -sf -m 10 -d '' "http://$TV_IP:8060/keypress/PowerOn" && sleep 5 && curl -sf -m 10 -d '' "http://$TV_IP:8060/launch/tvinput.hdmi1"
+
+# Off at 22:00.
+0 22 * * * curl -sf -m 10 -d '' "http://$TV_IP:8060/keypress/PowerOff"
