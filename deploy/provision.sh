@@ -48,7 +48,7 @@ apt-get install -y \
     chromium \
     unclutter \
     fonts-noto-core fonts-noto-cjk \
-    cron
+    cron dbus-x11
 
 say "Removing everything that blanks or locks a screen"
 # This is the load-bearing step of running the dashboard inside a desktop
@@ -65,7 +65,10 @@ say "Removing everything that blanks or locks a screen"
 apt-get purge -y \
     xfce4-screensaver light-locker xscreensaver xfce4-power-manager \
     2>/dev/null || true
-apt-get autoremove -y
+# Deliberately no `apt-get autoremove` here. These are Suggests of the xfce4
+# metapackage, so purging them orphans nothing — and an autoremove straight
+# after a purge is exactly how a desktop install gets quietly dismantled if
+# one of them ever turns out to be a dependency after all.
 
 # Purging alone is not durable. xfce4-power-manager is a *Recommends* of the
 # xfce4 metapackage, so the next `apt upgrade` that re-evaluates recommends can
@@ -166,17 +169,21 @@ say "Autostarting the dashboard in the desktop session"
 USER_HOME="$(getent passwd "$SERVICE_USER" | cut -d: -f6)"
 [ -n "$USER_HOME" ] || die "cannot find a home directory for $SERVICE_USER"
 AUTOSTART_DIR="${USER_HOME}/.config/autostart"
+# Create .config explicitly and chown the tree afterwards. `install -d` on a
+# nested path cannot be relied on to apply -o/-g to the *parents* it creates,
+# and a root-owned ~/.config is catastrophic here: xfconfd cannot write its
+# settings, so xfce4-session dies with "unable to determine failsafe session
+# name" and the machine boots to an error dialog instead of a desktop.
+install -d -m 0755 -o "$SERVICE_USER" -g "$SERVICE_USER" "${USER_HOME}/.config"
 install -d -m 0755 -o "$SERVICE_USER" -g "$SERVICE_USER" "$AUTOSTART_DIR"
+chown -R "$SERVICE_USER:$SERVICE_USER" "${USER_HOME}/.config"
 install -m 0644 -o "$SERVICE_USER" -g "$SERVICE_USER" \
     "$INSTALL_DIR/deploy/wall-dashboard.desktop" "$AUTOSTART_DIR/"
 
-# Don't restore last session's windows. Otherwise a reboot can reopen whatever
-# happened to be on screen when it went down, on top of the dashboard.
-runuser -u "$SERVICE_USER" -- \
-    xfconf-query -c xfce4-session -p /general/SaveOnExit -n -t bool -s false \
-    2>/dev/null || true
-
-say "Waiting for the server"
+# NOTE: SaveOnExit is left alone. Setting it from here meant running
+# xfconf-query with no session bus, which starts a stray xfconfd and can
+# leave a half-made config tree behind — a likely cause of the broken
+# first boot. Set it in Settings > Session and Startup instead.
 for _ in $(seq 1 60); do
     if curl -sf -o /dev/null http://localhost:3000/api/health; then
         echo "server is up"
