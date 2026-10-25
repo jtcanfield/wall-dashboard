@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Wall dashboard
+Comment=Opens the dashboard fullscreen when the desktop session starts
+Exec=/opt/wall-dashboard/deploy/kiosk.sh
+# XFCE honours the XDG autostart spec, so this runs once the session is up and
+# a window manager exists to make --kiosk genuinely fullscreen. Installed into
+# the wall user's ~/.config/autostart rather than /etc/xdg/autostart, so it is
+# obviously one user's session and not a system-wide surprise.
+X-GNOME-Autostart-enabled=true
+NoDisplay=false
+Terminal=false

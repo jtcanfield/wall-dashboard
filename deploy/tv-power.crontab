@@ -16,6 +16,12 @@
 
 TV_IP=192.168.1.x
 
+# Put the dashboard back on screen before the TV comes on. The dashboard shares
+# a session with a usable desktop, so if the browser was closed to do something
+# else and never reopened, the wall would show the XFCE desktop all day. This is
+# a no-op when it is already running.
+55 5 * * * DISPLAY=:0 /opt/wall-dashboard/deploy/ensure-kiosk.sh >/dev/null 2>&1
+
 # On at 06:00, then select the input the Wyse is plugged into. The sleep is
 # there because PowerOn returns before the TV can accept an input change.
 0 6 * * * curl -sf -m 10 -d '' "http://$TV_IP:8060/keypress/PowerOn" && sleep 5 && curl -sf -m 10 -d '' "http://$TV_IP:8060/launch/tvinput.hdmi1"
