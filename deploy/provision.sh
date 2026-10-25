@@ -64,6 +64,29 @@ apt-get purge -y \
     2>/dev/null || true
 apt-get autoremove -y
 
+# Purging alone is not durable. xfce4-power-manager is a *Recommends* of the
+# xfce4 metapackage, so the next `apt upgrade` that re-evaluates recommends can
+# pull it straight back, and the wall starts blanking again weeks later for no
+# visible reason. This box is a permanent server that will see plenty of apt
+# activity, so the purge needs a lock behind it.
+#
+# A negative pin priority makes a package uninstallable rather than merely
+# absent: apt refuses to select it, including as a recommendation of something
+# else. `apt-mark hold` would not do this — hold pins a *version*, it does not
+# prevent an install.
+cat > /etc/apt/preferences.d/no-screen-blankers <<'PIN'
+# Nothing on a wall-mounted panel may switch the screen off or lock it.
+# Removing these is not enough; they have to be unable to come back.
+# Delete this file if you ever genuinely want one of them.
+Package: xfce4-power-manager xfce4-power-manager-data xfce4-power-manager-plugins
+Pin: release *
+Pin-Priority: -1
+
+Package: xfce4-screensaver light-locker xscreensaver
+Pin: release *
+Pin-Priority: -1
+PIN
+
 say "Installing Node ${NODE_MAJOR} from NodeSource"
 # Debian 13 ships Node 20.19; this repo's engines field requires >= 22.
 if ! command -v node >/dev/null 2>&1 || [ "$(node -p 'process.versions.node.split(".")[0]')" -lt "$NODE_MAJOR" ]; then
