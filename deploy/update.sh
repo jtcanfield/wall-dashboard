@@ -13,7 +13,8 @@
 set -euo pipefail
 
 INSTALL_DIR=/opt/wall-dashboard
-SERVICE_USER=wall
+# Must match whatever provision.sh used; override the same way.
+SERVICE_USER="${DASHBOARD_USER:-kiosk}"
 FORCE=${1:-}
 
 say() { printf '\n\033[1;36m==> %s\033[0m\n' "$1"; }

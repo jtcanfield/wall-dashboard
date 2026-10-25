@@ -7,8 +7,8 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-User=wall
-Group=wall
+User=kiosk
+Group=kiosk
 
 # The working directory is load-bearing, not cosmetic. Runtime paths (config/,
 # data/, client/dist) resolve from __dirname and hold wherever this is

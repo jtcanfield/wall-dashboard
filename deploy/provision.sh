@@ -16,7 +16,10 @@
 set -euo pipefail
 
 INSTALL_DIR=/opt/wall-dashboard
-SERVICE_USER=wall
+# The account that owns the session and the app. Overridable because the
+# Debian installer has already created *a* user by the time this runs, and
+# creating a second one just to own the dashboard is confusing.
+SERVICE_USER="${DASHBOARD_USER:-kiosk}"
 NODE_MAJOR=22
 
 say() { printf '\n\033[1;36m==> %s\033[0m\n' "$1"; }
@@ -101,7 +104,7 @@ if ! command -v node >/dev/null 2>&1 || [ "$(node -p 'process.versions.node.spli
 fi
 node --version
 
-say "Creating the ${SERVICE_USER} user"
+say "Setting up the ${SERVICE_USER} account"
 if ! id -u "$SERVICE_USER" >/dev/null 2>&1; then
     useradd --create-home --shell /bin/bash "$SERVICE_USER"
 fi
@@ -113,9 +116,14 @@ groupadd -f nopasswdlogin
 usermod -aG autologin,nopasswdlogin "$SERVICE_USER"
 
 say "Configuring autologin"
+AUTOLOGIN_CONF=/etc/lightdm/lightdm.conf.d/50-wall-autologin.conf
 install -d -m 0755 /etc/lightdm/lightdm.conf.d
 install -m 0644 "$REPO_DIR/deploy/lightdm-autologin.conf" \
     /etc/lightdm/lightdm.conf.d/50-wall-autologin.conf
+# Anchored to the whole line on purpose. A blanket substitution would also
+# rewrite /opt/wall-dashboard and wall-dashboard.service, which is a quietly
+# broken install rather than an obvious one.
+sed -i "s|^autologin-user=.*|autologin-user=${SERVICE_USER}|" "$AUTOLOGIN_CONF"
 systemctl enable lightdm.service
 
 say "Installing the app to ${INSTALL_DIR}"
@@ -140,6 +148,7 @@ chmod +x "$INSTALL_DIR/deploy/kiosk.sh" "$INSTALL_DIR/deploy/ensure-kiosk.sh"
 
 say "Installing the server service"
 install -m 0644 "$INSTALL_DIR/deploy/wall-dashboard.service" /etc/systemd/system/
+sed -i "s|^User=.*|User=${SERVICE_USER}|;s|^Group=.*|Group=${SERVICE_USER}|" /etc/systemd/system/wall-dashboard.service
 # Supersedes an earlier design where the kiosk owned its own X server on tty1.
 # XFCE's session owns the display now, so that unit would fight it for tty1.
 if [ -f /etc/systemd/system/wall-kiosk.service ]; then
@@ -151,7 +160,12 @@ systemctl daemon-reload
 systemctl enable --now wall-dashboard.service
 
 say "Autostarting the dashboard in the desktop session"
-AUTOSTART_DIR="/home/${SERVICE_USER}/.config/autostart"
+# From getent, not /home/$SERVICE_USER. The installer's own account does
+# usually land there, but assuming it is the sort of thing that works until
+# it doesn't.
+USER_HOME="$(getent passwd "$SERVICE_USER" | cut -d: -f6)"
+[ -n "$USER_HOME" ] || die "cannot find a home directory for $SERVICE_USER"
+AUTOSTART_DIR="${USER_HOME}/.config/autostart"
 install -d -m 0755 -o "$SERVICE_USER" -g "$SERVICE_USER" "$AUTOSTART_DIR"
 install -m 0644 -o "$SERVICE_USER" -g "$SERVICE_USER" \
     "$INSTALL_DIR/deploy/wall-dashboard.desktop" "$AUTOSTART_DIR/"
