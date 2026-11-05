@@ -117,8 +117,21 @@ say "Output profiles"
 # by name, which picks a dead port two times in three.
 pactl list cards | tr -d '\t' | grep -E '^output:(hdmi|analog)' | sed 's/^/        /'
 
-LIVE="$(pactl list cards | tr -d '\t' | grep -E '^output:hdmi' \
-    | grep 'available: yes' | head -1 | cut -d: -f1-2)"
+# Split on the first ": " that introduces the description, never on ":".
+# Profile names contain colons themselves — output:hdmi-stereo+input:analog-stereo
+# is one name, not two — so cutting at the second colon yields
+# "output:hdmi-stereo+input", which the server rightly rejects as
+# "No such entity". A colon followed by a space only ever appears before the
+# human-readable part.
+AVAILABLE="$(pactl list cards | tr -d '\t' | grep -E '^output:hdmi' \
+    | grep 'available: yes' | sed 's/: .*//')"
+
+# Prefer an output-only profile. The +input variants switch the analog
+# microphone on as well, which nothing on a wall display wants.
+LIVE="$(printf '%s\n' "$AVAILABLE" | grep -v '+input' | head -1)"
+if [ -z "$LIVE" ]; then
+    LIVE="$(printf '%s\n' "$AVAILABLE" | head -1)"
+fi
 
 if [ -z "$LIVE" ]; then
     warn "no HDMI profile reports an attached display"
@@ -129,10 +142,18 @@ else
     if [ "$CURRENT" = "$LIVE" ]; then
         ok "already on $LIVE"
     else
-        pactl set-card-profile "$CARD" "$LIVE" \
-            && fixed "profile was '$CURRENT', now '$LIVE'" \
-            || bad "could not set profile $LIVE"
-        sleep 1
+        if pactl set-card-profile "$CARD" "$LIVE"; then
+            fixed "profile was '$CURRENT', now '$LIVE'"
+            sleep 1
+        else
+            bad "could not set profile '$LIVE'"
+            # Print them verbatim rather than parsed, so a name this script
+            # mangles is still visible and can be set by hand.
+            echo "        exact profile names the card accepts:"
+            pactl list cards | tr -d '\t' | grep -E '^output:' | sed 's/: .*//' \
+                | sed 's/^/          /'
+            echo "        then:  pactl set-card-profile $CARD <name>"
+        fi
     fi
 fi
 
