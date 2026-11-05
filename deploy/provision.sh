@@ -40,6 +40,11 @@ apt-get update
 # fonts-noto-core + fonts-noto-cjk: minimal Debian images have no Cyrillic
 #   coverage, and the Russian headlines render as tofu boxes without it.
 # unclutter: hides the pointer after a few idle seconds.
+# pipewire-audio: Trixie's default sound server, and NOT pulled in by the
+#   xfce4 metapackage. xfce4 Depends on xfce4-pulseaudio-plugin, which is a
+#   panel applet needing only libpulse0 — so dpkg shows something
+#   pulse-shaped while nothing is actually serving audio, and HDMI sound
+#   silently does not work.
 apt-get install -y \
     ca-certificates curl git gnupg \
     xserver-xorg xinit x11-xserver-utils \
@@ -48,7 +53,7 @@ apt-get install -y \
     chromium \
     unclutter \
     fonts-noto-core fonts-noto-cjk \
-    cron dbus-x11
+    cron dbus-x11 pipewire-audio pavucontrol alsa-utils
 
 say "Removing everything that blanks or locks a screen"
 # This is the load-bearing step of running the dashboard inside a desktop

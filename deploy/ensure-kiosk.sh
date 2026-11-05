@@ -14,6 +14,17 @@ set -u
 DISPLAY="${DISPLAY:-:0}"
 export DISPLAY
 
+# DISPLAY alone is not enough, and the gap is silent. The sound server
+# lives in the user runtime directory, so a Chromium started from cron
+# without XDG_RUNTIME_DIR shows video perfectly and plays no audio at
+# all — which looks like a broken driver rather than a missing variable.
+: "${XDG_RUNTIME_DIR:=/run/user/$(id -u)}"
+export XDG_RUNTIME_DIR
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && [ -S "$XDG_RUNTIME_DIR/bus" ]; then
+    DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+    export DBUS_SESSION_BUS_ADDRESS
+fi
+
 KIOSK="$(dirname "$(readlink -f "$0")")/kiosk.sh"
 
 # Match the class kiosk.sh sets, not "chromium" — the point is to detect *this*
