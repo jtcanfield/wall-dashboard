@@ -4,6 +4,7 @@ import type { CacheEntry, LuftenState, WeatherData } from "@shared/types";
 import { EXPECTED_INTERVAL_MS } from "@shared/types";
 import { Stale } from "../components/stale";
 import { buildSeries, chartOptions } from "./weather-chart";
+import { currentConditions } from "./weather-icon";
 
 interface Props {
     entry: CacheEntry<WeatherData>;
@@ -19,6 +20,10 @@ export function WeatherPanel({ entry, luften }: Props) {
     luftenRef.current = luften;
 
     const series = useMemo(() => buildSeries(entry.data?.hourly ?? []), [entry.data]);
+    // Recomputed per frame rather than per minute: the state push already
+    // arrives on every poll, and an hourly value cannot change faster than
+    // the data behind it.
+    const now = useMemo(() => currentConditions(entry.data?.hourly ?? []), [entry.data]);
 
     useLayoutEffect(() => {
         const el = host.current;
@@ -57,6 +62,19 @@ export function WeatherPanel({ entry, luften }: Props) {
         <section class="panel">
             <header class="panel__head">
                 <span class="panel__title">Weather</span>
+                {now && (
+                    <span class="weather__now">
+                        {now.icon && (
+                            <span class="weather__icon" role="img" aria-label={now.label}>
+                                {now.icon}
+                            </span>
+                        )}
+                        <span class="weather__temp">{Math.round(now.temperatureF)}°F</span>
+                        <span class="weather__temp weather__temp--alt">
+                            {Math.round(now.temperatureC)}°C
+                        </span>
+                    </span>
+                )}
                 <span class="weather__legend">
                     <span>
                         <i class="swatch" style="background: var(--temp)" />

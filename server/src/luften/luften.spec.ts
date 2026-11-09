@@ -8,6 +8,8 @@ const hour = (time: string, tempF: number, dewPointF: number, precip = 0): Weath
     dewPointF,
     precipitationIn: precip,
     precipitationProbability: 0,
+    weatherCode: null,
+    isDay: true,
     relativeHumidity: 50,
 });
 

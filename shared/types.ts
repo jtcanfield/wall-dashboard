@@ -44,6 +44,14 @@ export interface WeatherHour {
     precipitationProbability: number;
     dewPointF: number;
     relativeHumidity: number;
+    /**
+     * WMO 4677 weather code, as Open-Meteo reports it. Null when the source
+     * could not supply one — the NWS fallback has only prose, and a guess
+     * dressed as a code would be worse than an absent icon.
+     */
+    weatherCode: number | null;
+    /** Drives the sun/moon variant of the icon. */
+    isDay: boolean;
 }
 
 export interface WeatherData {

@@ -6,6 +6,7 @@ import { CacheService } from "../../cache/cache.service";
 import { getJson } from "../../cache/http";
 import { WeatherData, WeatherHour } from "../../shared";
 import { TIMEZONE, stagger } from "../stagger";
+import { wmoFromShortForecast } from "./wmo";
 
 interface OpenMeteoResponse {
     hourly?: {
@@ -15,6 +16,8 @@ interface OpenMeteoResponse {
         precipitation_probability?: (number | null)[];
         dew_point_2m?: number[];
         relative_humidity_2m?: number[];
+        weather_code?: number[];
+        is_day?: number[];
     };
 }
 
@@ -31,6 +34,8 @@ interface NwsHourly {
             probabilityOfPrecipitation?: { value: number | null };
             dewpoint?: { value: number | null };
             relativeHumidity?: { value: number | null };
+            shortForecast?: string;
+            isDaytime?: boolean;
         }[];
     };
 }
@@ -73,7 +78,8 @@ export class WeatherService implements OnModuleInit {
         url.searchParams.set("longitude", String(this.config.get("LONGITUDE", -78.6382)));
         url.searchParams.set(
             "hourly",
-            "temperature_2m,precipitation,precipitation_probability,dew_point_2m,relative_humidity_2m",
+            "temperature_2m,precipitation,precipitation_probability,dew_point_2m," +
+                "relative_humidity_2m,weather_code,is_day",
         );
         url.searchParams.set("timezone", TIMEZONE);
         url.searchParams.set("temperature_unit", "fahrenheit");
@@ -93,6 +99,10 @@ export class WeatherService implements OnModuleInit {
             precipitationProbability: h.precipitation_probability?.[i] ?? 0,
             dewPointF: h.dew_point_2m?.[i] ?? NaN,
             relativeHumidity: h.relative_humidity_2m?.[i] ?? NaN,
+            weatherCode: h.weather_code?.[i] ?? null,
+            // is_day is 1/0, not a boolean. Defaulting a missing value to day
+            // keeps a sun on screen rather than a moon at noon.
+            isDay: (h.is_day?.[i] ?? 1) === 1,
         }));
 
         return {
@@ -147,6 +157,8 @@ export class WeatherService implements OnModuleInit {
                     precipitationProbability: p.probabilityOfPrecipitation?.value ?? 0,
                     dewPointF: dpC === null || dpC === undefined ? NaN : (dpC * 9) / 5 + 32,
                     relativeHumidity: p.relativeHumidity?.value ?? NaN,
+                    weatherCode: wmoFromShortForecast(p.shortForecast),
+                    isDay: p.isDaytime ?? true,
                 };
             })
             .filter((x) => x.at < cutoff && !Number.isNaN(x.dewPointF));
