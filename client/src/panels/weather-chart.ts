@@ -15,6 +15,9 @@ import { alpha, cssVar as css } from "../colors";
 const HOURS_BEHIND = 3;
 const HOURS_AHEAD = 33;
 
+/** Shared by the hour markers and the "Now" marker, so the two stay matched. */
+const HOUR_LABEL_FONT = '600 14px "Noto Sans", sans-serif';
+
 /** Local hours at which a vertical commute marker is drawn. */
 const COMMUTE_HOURS = [8, 15];
 
@@ -185,8 +188,7 @@ function markersPlugin(
                 // Where we are on the chart. Solid, where the commute markers
                 // are dashed — two vertical lines drawn the same way would
                 // read as the same kind of thing, and this one is not a
-                // forecast, it is the present. No label: the position is the
-                // whole message.
+                // forecast, it is the present.
                 const nowSec = Date.now() / 1000;
                 if (nowSec >= min && nowSec <= max) {
                     const nowX = u.valToPos(nowSec, "x", true);
@@ -198,6 +200,24 @@ function markersPlugin(
                     ctx.moveTo(nowX, u.bbox.top);
                     ctx.lineTo(nowX, u.bbox.top + u.bbox.height);
                     ctx.stroke();
+
+                    // Labelled on the **left** of its line, where the hour
+                    // markers label to the right of theirs. Same type, same
+                    // baseline, mirrored side — so when "now" passes 08:00 or
+                    // 15:00, which it does once each per day, the two labels
+                    // sit either side of a shared line instead of printing on
+                    // top of each other.
+                    ctx.font = HOUR_LABEL_FONT;
+                    ctx.fillStyle = alpha(css("--ink"), 0.75);
+                    const nowW = ctx.measureText("Now").width;
+                    if (nowX - nowW - 6 >= u.bbox.left) {
+                        ctx.textAlign = "right";
+                        ctx.fillText("Now", nowX - 6, u.bbox.top + 16);
+                    } else {
+                        // Only reachable if HOURS_BEHIND shrinks enough to put
+                        // the line against the left edge.
+                        ctx.fillText("Now", nowX + 6, u.bbox.top + 16);
+                    }
                     ctx.restore();
                 }
 
@@ -206,7 +226,7 @@ function markersPlugin(
                 ctx.setLineDash([6, 6]);
                 ctx.lineWidth = 2;
                 ctx.fillStyle = css("--ink-faint");
-                ctx.font = '600 14px "Noto Sans", sans-serif';
+                ctx.font = HOUR_LABEL_FONT;
 
                 let day = DateTime.fromMillis(min * 1000).startOf("day");
                 const end = DateTime.fromMillis(max * 1000);
