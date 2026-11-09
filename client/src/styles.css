@@ -86,8 +86,18 @@ body {
 }
 
 .column--right {
-    /* Twitch collapses to nothing when nobody is live and news absorbs it. */
+    /* Twitch collapses to nothing when nobody is live and news absorbs it.
+       The row gap moves onto the second child as a margin, because a grid
+       `gap` applies between *tracks* whether or not the second one holds
+       anything — so with nobody live the news panel still stopped 16px short
+       of the currency panel beside it. A sibling margin only exists when
+       there is a sibling. */
     grid-template-rows: 1fr auto;
+    gap: 0;
+}
+
+.column--right > * + * {
+    margin-top: var(--gap);
 }
 
 .panel {
@@ -760,15 +770,7 @@ body {
     background: #000;
 }
 
-/* The embed API injects its own iframe inside this div, so the sizing has to
-   reach through to it — a bare iframe used to be this element itself. */
 .twitch__frame {
-    display: block;
-    width: 100%;
-    height: 100%;
-}
-
-.twitch__frame iframe {
     display: block;
     width: 100%;
     height: 100%;
