@@ -39,6 +39,9 @@ apt-get update
 #
 # fonts-noto-core + fonts-noto-cjk: minimal Debian images have no Cyrillic
 #   coverage, and the Russian headlines render as tofu boxes without it.
+# fonts-noto-color-emoji: the same failure with different glyphs — the
+#   weather header's condition icon is an emoji, and without this font
+#   it is a box.
 # unclutter: hides the pointer after a few idle seconds.
 # pipewire-audio: Trixie's default sound server, and NOT pulled in by the
 #   xfce4 metapackage. xfce4 Depends on xfce4-pulseaudio-plugin, which is a
@@ -52,7 +55,7 @@ apt-get install -y \
     lightdm \
     chromium \
     unclutter \
-    fonts-noto-core fonts-noto-cjk \
+    fonts-noto-core fonts-noto-cjk fonts-noto-color-emoji \
     cron dbus-x11 pipewire-audio pavucontrol alsa-utils
 
 say "Removing everything that blanks or locks a screen"
