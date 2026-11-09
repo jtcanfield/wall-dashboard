@@ -24,12 +24,12 @@ const bars = uPlot.paths.bars?.({ size: [0.7, 26] });
 /**
  * Commute readout type size, in px.
  *
- * Went 15 -> 45 to be readable from across the room, then halved to 22 once it
+ * Went 15 -> 45 to be readable from across the room, then down to 25 once it
  * was actually on the wall: 45 read as a second headline competing with the
  * chart rather than as an annotation on it. The padding and the hour label
  * below are tuned to this number — change it and they want changing too.
  */
-const READOUT_PX = 22;
+const READOUT_PX = 25;
 
 export type WeatherSeries = AlignedData;
 
