@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useLayoutEffect, useRef } from "preact/hooks";
 import type { CacheEntry, TwitchStream } from "@shared/types";
 
 interface Props {
@@ -31,158 +31,82 @@ const EMBED_W = 400;
 const EMBED_H = 225;
 
 /**
- * Player volume, 0–1, on top of whatever the system mixer is set to.
+ * Start muted?
  *
- * A stream going live is not an event the room asked for, and it can happen at
- * any hour the display is on. Half volume is audible from the sofa without
- * being the loudest thing in the house. Set MUTED below to true to keep the
- * picture and drop the sound entirely.
+ * **False on purpose**, and it is not the obvious choice. Muted is the only
+ * form of autoplay browsers permit unconditionally, so `true` maximises the
+ * chance of the picture starting by itself — but it also means that when
+ * autoplay *is* refused, starting the stream takes a keypress to play and a
+ * second one to unmute.
+ *
+ * At `false`: if Chromium's autoplay policy is permissive the stream simply
+ * starts with sound; if it is not, the single space press that starts it also
+ * brings the sound with it. One key either way, never two.
  */
-const VOLUME = 0.5;
 const MUTED = false;
-
-/* --------------------------------------------------------- the embed API */
-
-interface TwitchPlayer {
-    addEventListener(event: string, handler: () => void): void;
-    setMuted(muted: boolean): void;
-    setVolume(level: number): void;
-    play(): void;
-    destroy?(): void;
-}
-
-interface TwitchGlobal {
-    Player: {
-        new (target: HTMLElement | string, options: Record<string, unknown>): TwitchPlayer;
-        READY: string;
-    };
-}
-
-declare global {
-    interface Window {
-        Twitch?: TwitchGlobal;
-    }
-}
-
-const EMBED_SCRIPT = "https://embed.twitch.tv/embed/v1.js";
-let pending: Promise<TwitchGlobal> | null = null;
-
-/**
- * Loads the embed script once and hands the same promise to every caller.
- *
- * A failure clears the cached promise rather than leaving a rejected one in
- * place: this display runs for sixteen hours, and a single bad minute of
- * network at boot must not mean no player until the next reboot.
- */
-function loadEmbed(): Promise<TwitchGlobal> {
-    if (window.Twitch?.Player) {
-        return Promise.resolve(window.Twitch);
-    }
-    if (pending) {
-        return pending;
-    }
-    pending = new Promise<TwitchGlobal>((resolve, reject) => {
-        const el = document.createElement("script");
-        el.src = EMBED_SCRIPT;
-        el.async = true;
-        el.onload = () => {
-            if (window.Twitch?.Player) {
-                resolve(window.Twitch);
-            } else {
-                reject(new Error("embed script loaded without Twitch.Player"));
-            }
-        };
-        el.onerror = () => reject(new Error("could not load the Twitch embed script"));
-        document.head.appendChild(el);
-    });
-    return pending.catch((err: unknown) => {
-        pending = null;
-        throw err;
-    });
-}
 
 /**
  * The live player.
  *
- * Built on the embed **JS API** rather than a bare iframe, for one reason: the
- * iframe gives no way to start playback or to change the mute state, so it is
- * entirely at the mercy of the browser's autoplay heuristics — and when those
- * decline, the only recovery is a person walking over and pressing play.
+ * A plain iframe, deliberately, after a detour through the embed JS API. That
+ * API offers `play()` and `setMuted()`, which looked like the answer to
+ * autoplay — but **unmuting a muted autoplaying video without user activation
+ * makes the browser pause it**, so calling `setMuted(false)` on READY produced
+ * exactly the big play button over a blurred poster it was meant to prevent.
+ * The JS API also builds its own iframe, which meant losing explicit control
+ * of `allow="autoplay"` — the attribute that delegates the permission to a
+ * cross-origin frame in the first place.
  *
- * The sequence here is what makes autoplay reliable:
+ * So: our iframe, our `allow`, and the autoplay question left to the browser,
+ * where it actually lives. `--autoplay-policy=no-user-gesture-required` in the
+ * kiosk flags is what decides it; check `chrome://version` if the picture does
+ * not start on its own.
  *
- * 1. Construct **muted**. Muted autoplay is the one form browsers permit
- *    unconditionally; asking to start unmuted is how you get a paused player.
- * 2. On READY, unmute. Unmuting a stream that is *already playing* is not an
- *    autoplay action, so the policy does not apply to it.
- * 3. Call `play()` anyway, as the belt to that braces — harmless when it is
- *    already running, and the recovery if step 1 was still held back.
+ * The player is **focused on mount** regardless. Whether or not autoplay is
+ * permitted, the keyboard is already in the player, so starting it is one
+ * space press rather than tab-then-space.
  */
 function Player({ stream }: { stream: TwitchStream }) {
-    const host = useRef<HTMLDivElement>(null);
-    const [failed, setFailed] = useState(false);
+    const frame = useRef<HTMLIFrameElement>(null);
+    const host = location.hostname;
+    const src =
+        `https://player.twitch.tv/?channel=${encodeURIComponent(stream.userLogin)}` +
+        `&parent=${encodeURIComponent(host)}&autoplay=true&muted=${String(MUTED)}`;
 
     useLayoutEffect(() => {
-        let player: TwitchPlayer | null = null;
-        let cancelled = false;
-
-        void loadEmbed()
-            .then((Twitch) => {
-                if (cancelled || !host.current) {
-                    return;
-                }
-                player = new Twitch.Player(host.current, {
-                    channel: stream.userLogin,
-                    parent: [location.hostname],
-                    width: EMBED_W,
-                    height: EMBED_H,
-                    autoplay: true,
-                    muted: true,
-                    // Nothing on this display should be seekable, and the
-                    // controls would only ever be covered by the overlay below.
-                    controls: false,
-                });
-                player.addEventListener(Twitch.Player.READY, () => {
-                    if (cancelled) {
-                        return;
-                    }
-                    player?.play();
-                    if (!MUTED) {
-                        player?.setMuted(false);
-                        player?.setVolume(VOLUME);
-                    }
-                });
-            })
-            .catch(() => {
-                if (!cancelled) {
-                    setFailed(true);
-                }
-            });
-
-        return () => {
-            cancelled = true;
-            player?.destroy?.();
-        };
-        // Keyed on the login: a different streamer going live has to replace
-        // the player, not reconfigure the old one.
+        // Focus moves *into* the frame, so the keys go to Twitch's own handler
+        // — which is what makes space work. Cross-origin is no obstacle to
+        // this; reading the frame would be, but we are only handing it focus.
+        frame.current?.focus();
+        // Re-run when the streamer changes: a different login is a different
+        // iframe, and the new one needs the keyboard too.
     }, [stream.userLogin]);
-
-    if (failed) {
-        return <img class="twitch__thumb" src={stream.thumbnailUrl} alt="" />;
-    }
 
     return (
         <div class="twitch__player" style={{ width: EMBED_W, height: EMBED_H }}>
-            <div ref={host} class="twitch__frame" />
+            <iframe
+                ref={frame}
+                class="twitch__frame"
+                src={src}
+                width={EMBED_W}
+                height={EMBED_H}
+                allow="autoplay; fullscreen"
+                allowFullScreen
+                title={`${stream.userName} live`}
+                scrolling="no"
+                frameBorder={0}
+            />
             {/* An iframe swallows its own clicks, so the parent page cannot see
                 them. This transparent layer sits above the player purely to
-                catch one, and fullscreens the container rather than the frame
-                Twitch builds inside it. */}
+                catch one. It is out of the tab order: it sits on top of the
+                thing we just focused, and must never take the keyboard back
+                from it. */}
             <button
                 class="twitch__expand"
                 type="button"
+                tabIndex={-1}
                 aria-label={`Expand ${stream.userName}`}
-                onClick={() => void host.current?.parentElement?.requestFullscreen?.()}
+                onClick={() => void frame.current?.requestFullscreen?.()}
             />
         </div>
     );
