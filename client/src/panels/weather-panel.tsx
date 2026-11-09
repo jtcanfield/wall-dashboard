@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "preact/hooks";
 import uPlot from "uplot";
 import type { CacheEntry, LuftenState, WeatherData } from "@shared/types";
 import { EXPECTED_INTERVAL_MS } from "@shared/types";
@@ -47,6 +47,17 @@ export function WeatherPanel({ entry, luften }: Props) {
     useLayoutEffect(() => {
         chart.current?.setData(series);
     }, [series]);
+
+    useEffect(() => {
+        // The "now" line is drawn from Date.now() inside a draw hook, so it
+        // only moves when something asks the chart to redraw. Weather polls
+        // every fifteen minutes, which would march the line across in visible
+        // seven-pixel jumps. A minute is below the width of a pixel here.
+        const id = setInterval(() => chart.current?.redraw(false), 60_000);
+        return () => {
+            clearInterval(id);
+        };
+    }, []);
 
     useLayoutEffect(() => {
         // `redraw(false)`, never `redraw()`. The default rebuilds paths, which

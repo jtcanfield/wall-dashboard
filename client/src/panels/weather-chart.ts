@@ -178,6 +178,26 @@ function markersPlugin(
                 }
 
                 const ctx = u.ctx;
+
+                // Where we are on the chart. Solid, where the commute markers
+                // are dashed — two vertical lines drawn the same way would
+                // read as the same kind of thing, and this one is not a
+                // forecast, it is the present. No label: the position is the
+                // whole message.
+                const nowSec = Date.now() / 1000;
+                if (nowSec >= min && nowSec <= max) {
+                    const nowX = u.valToPos(nowSec, "x", true);
+                    ctx.save();
+                    ctx.setLineDash([]);
+                    ctx.strokeStyle = alpha(css("--ink"), 0.5);
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(nowX, u.bbox.top);
+                    ctx.lineTo(nowX, u.bbox.top + u.bbox.height);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
                 ctx.save();
                 ctx.strokeStyle = alpha(css("--ink-faint"), 0.85);
                 ctx.setLineDash([6, 6]);
