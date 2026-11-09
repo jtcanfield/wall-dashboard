@@ -24,11 +24,12 @@ const bars = uPlot.paths.bars?.({ size: [0.7, 26] });
 /**
  * Commute readout type size, in px.
  *
- * Tripled from the original 15px: this is a wall display read from across the
- * room, and at 15px the two numbers that justify the markers existing were the
- * smallest thing on the panel.
+ * Went 15 -> 45 to be readable from across the room, then halved to 22 once it
+ * was actually on the wall: 45 read as a second headline competing with the
+ * chart rather than as an annotation on it. The padding and the hour label
+ * below are tuned to this number — change it and they want changing too.
  */
-const READOUT_PX = 45;
+const READOUT_PX = 22;
 
 export type WeatherSeries = AlignedData;
 
@@ -90,12 +91,14 @@ function drawReadout(u: uPlot, x: number, at: number): void {
     ctx.save();
     ctx.font = `600 ${READOUT_PX}px "Noto Sans", sans-serif`;
 
-    // Stacked, not side by side. At this size the two values laid out in a row
-    // measure ~200px, and 08:00 and 15:00 sit about 200px apart in a 36-hour
-    // window — the boxes would collide on every same-day pair.
-    const padX = 14;
-    const padY = 10;
-    const lineGap = sub ? 6 : 0;
+    // Stacked, not side by side. At 45px this was forced — a row measured
+    // ~200px against markers sitting ~195px apart, so same-day pairs collided
+    // every time. At 22px a row would fit, so it is now a choice rather than a
+    // constraint: a narrow two-line box crowds the chart less than a wide
+    // one-line box, and it cannot collide at any size the type might grow to.
+    const padX = 8;
+    const padY = 6;
+    const lineGap = sub ? 4 : 0;
     const tempW = ctx.measureText(label).width;
     const rainW = sub ? ctx.measureText(sub).width : 0;
     const boxW = Math.max(tempW, rainW) + padX * 2;
@@ -104,14 +107,14 @@ function drawReadout(u: uPlot, x: number, at: number): void {
     // Keep the box inside the plot when a marker lands near either edge.
     const right = u.bbox.left + u.bbox.width;
     const boxX = Math.max(u.bbox.left, Math.min(x + 6, right - boxW - 2));
-    const boxY = u.bbox.top + 32;
+    const boxY = u.bbox.top + 24;
 
     ctx.fillStyle = alpha(css("--bg"), 0.9);
     ctx.strokeStyle = css("--border");
     ctx.lineWidth = 1;
     ctx.setLineDash([]);
     ctx.beginPath();
-    ctx.roundRect(boxX, boxY, boxW, boxH, 8);
+    ctx.roundRect(boxX, boxY, boxW, boxH, 5);
     ctx.fill();
     ctx.stroke();
 
@@ -203,7 +206,7 @@ function markersPlugin(
                 ctx.setLineDash([6, 6]);
                 ctx.lineWidth = 2;
                 ctx.fillStyle = css("--ink-faint");
-                ctx.font = '600 20px "Noto Sans", sans-serif';
+                ctx.font = '600 14px "Noto Sans", sans-serif';
 
                 let day = DateTime.fromMillis(min * 1000).startOf("day");
                 const end = DateTime.fromMillis(max * 1000);
@@ -218,7 +221,7 @@ function markersPlugin(
                         ctx.moveTo(x, u.bbox.top);
                         ctx.lineTo(x, u.bbox.top + u.bbox.height);
                         ctx.stroke();
-                        ctx.fillText(`${hour}:00`, x + 6, u.bbox.top + 20);
+                        ctx.fillText(`${hour}:00`, x + 6, u.bbox.top + 16);
                         drawReadout(u, x, at);
                     }
                     day = day.plus({ days: 1 });
